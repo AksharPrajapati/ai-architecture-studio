@@ -4,7 +4,7 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Current Phase
 
-- Foundation — design system complete; ready for next feature unit
+- Foundation — editor chrome complete; ready for next feature unit
 
 ## Current Goal
 
@@ -13,6 +13,7 @@ Update this file whenever the current phase, active feature, or implementation s
 ## Completed
 
 - Design system (`context/feature-specs/01-design-system.md`): shadcn/ui (base-nova) configured, `lib/utils.ts` with `cn()`, lucide-react, Button, Card, Dialog, Input, Tabs, Textarea, ScrollArea in `components/ui/`, dark theme tokens in `app/globals.css`, `dark` class on `<html>`.
+- Editor chrome (`context/feature-specs/02-editor.md`): `EditorNavbar`, `ProjectSidebar`, and `EditorDialog` pattern in `components/editor/`.
 
 ## In Progress
 
@@ -32,4 +33,4 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Session Notes
 
-- Add context needed to resume work in the next session.
+- Editor chrome is wired via `EditorLayout` in `app/(editor)/layout.tsx` (navbar + project sidebar state). Dialog pattern: `components/editor/editor-dialog.tsx` (title, description, footer wrappers; no feature dialogs yet).
