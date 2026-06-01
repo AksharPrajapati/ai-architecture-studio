@@ -12,6 +12,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
 /** Styled dialog content using design tokens — use for future editor modals. */
@@ -70,8 +71,24 @@ function EditorDialogBody({
   className,
   ...props
 }: React.ComponentProps<"div">) {
-  return <div className={cn("px-6 py-4", className)} {...props} />;
+  return <div className={cn("space-y-5 px-6 py-5", className)} {...props} />;
 }
+
+const EditorDialogInput = React.forwardRef<
+  HTMLInputElement,
+  React.ComponentProps<typeof Input>
+>(function EditorDialogInput({ className, ...props }, ref) {
+  return (
+    <Input
+      ref={ref}
+      className={cn(
+        "h-9 border-surface-border bg-subtle text-copy-primary placeholder:text-copy-muted focus-visible:border-brand focus-visible:ring-brand/25 dark:bg-subtle",
+        className
+      )}
+      {...props}
+    />
+  );
+});
 
 function EditorDialogFooter({
   className,
@@ -80,7 +97,7 @@ function EditorDialogFooter({
   return (
     <DialogFooter
       className={cn(
-        "flex flex-col-reverse gap-2 border-t border-surface-border bg-subtle/50 px-6 py-4 sm:flex-row sm:justify-end",
+        "mx-0 mb-0 flex flex-col-reverse gap-3 rounded-none border-t border-surface-border bg-subtle/50 px-6 pt-4 pb-4 sm:flex-row sm:justify-end",
         className
       )}
       {...props}
@@ -97,5 +114,6 @@ export {
   EditorDialogDescription,
   EditorDialogFooter,
   EditorDialogHeader,
+  EditorDialogInput,
   EditorDialogTitle,
 };
