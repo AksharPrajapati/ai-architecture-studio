@@ -1,5 +1,6 @@
 "use client";
 
+import { UserButton } from "@clerk/nextjs";
 import { useState } from "react";
 
 import { EditorNavbar } from "@/components/editor/editor-navbar";
@@ -19,6 +20,7 @@ export function EditorLayout({ children, className }: EditorLayoutProps) {
       <EditorNavbar
         isSidebarOpen={isSidebarOpen}
         onSidebarToggle={() => setIsSidebarOpen((open) => !open)}
+        right={<UserButton />}
       />
       <ProjectSidebar
         isOpen={isSidebarOpen}

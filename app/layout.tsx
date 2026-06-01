@@ -1,5 +1,9 @@
+import { ClerkProvider } from "@clerk/nextjs";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+
+import { clerkAppearance } from "@/lib/clerk";
+
 import "./globals.css";
 
 const geistSans = Geist({
@@ -29,10 +33,18 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <body
-        className="flex min-h-full flex-col"
+        className="flex min-h-full flex-col font-sans"
         suppressHydrationWarning
       >
-        {children}
+        <ClerkProvider
+          appearance={clerkAppearance}
+          signInUrl="/sign-in"
+          signUpUrl="/sign-up"
+          signInFallbackRedirectUrl="/editor"
+          signUpFallbackRedirectUrl="/editor"
+        >
+          {children}
+        </ClerkProvider>
       </body>
     </html>
   );
