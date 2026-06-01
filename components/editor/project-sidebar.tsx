@@ -2,9 +2,15 @@
 
 import { Plus, X } from "lucide-react";
 
+import { ProjectListItem } from "@/components/editor/project-list-item";
+import { useProjectDialogsContext } from "@/components/editor/project-dialogs-provider";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  MOCK_OWNED_PROJECTS,
+  MOCK_SHARED_PROJECTS,
+} from "@/lib/projects/mock-projects";
 import { cn } from "@/lib/utils";
 
 interface ProjectSidebarProps {
@@ -22,6 +28,11 @@ function ProjectTabPlaceholder({ message }: { message: string }) {
 }
 
 export function ProjectSidebar({ isOpen, onClose, className }: ProjectSidebarProps) {
+  const { openCreate, openRename, openDelete } = useProjectDialogsContext();
+
+  const hasOwnedProjects = MOCK_OWNED_PROJECTS.length > 0;
+  const hasSharedProjects = MOCK_SHARED_PROJECTS.length > 0;
+
   return (
     <aside
       aria-hidden={!isOpen}
@@ -51,17 +62,46 @@ export function ProjectSidebar({ isOpen, onClose, className }: ProjectSidebarPro
         </TabsList>
 
         <ScrollArea className="min-h-0 flex-1">
-          <TabsContent value="my-projects" className="flex min-h-[12rem] flex-col">
-            <ProjectTabPlaceholder message="No projects yet" />
+          <TabsContent value="my-projects" className="flex min-h-[12rem] flex-col px-2 py-2">
+            {hasOwnedProjects ? (
+              <ul className="flex flex-col gap-0.5">
+                {MOCK_OWNED_PROJECTS.map((project) => (
+                  <li key={project.id}>
+                    <ProjectListItem
+                      project={project}
+                      showActions
+                      onRename={openRename}
+                      onDelete={openDelete}
+                    />
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <ProjectTabPlaceholder message="No projects yet" />
+            )}
           </TabsContent>
-          <TabsContent value="shared" className="flex min-h-[12rem] flex-col">
-            <ProjectTabPlaceholder message="No shared projects yet" />
+          <TabsContent value="shared" className="flex min-h-[12rem] flex-col px-2 py-2">
+            {hasSharedProjects ? (
+              <ul className="flex flex-col gap-0.5">
+                {MOCK_SHARED_PROJECTS.map((project) => (
+                  <li key={project.id}>
+                    <ProjectListItem
+                      project={project}
+                      subtitle={`Owned by ${project.ownerName}`}
+                      showActions={false}
+                    />
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <ProjectTabPlaceholder message="No shared projects yet" />
+            )}
           </TabsContent>
         </ScrollArea>
       </Tabs>
 
       <div className="shrink-0 border-t border-surface-border p-4">
-        <Button type="button" className="w-full">
+        <Button type="button" className="w-full" onClick={openCreate}>
           <Plus className="h-4 w-4" />
           New Project
         </Button>
