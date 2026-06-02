@@ -4,11 +4,11 @@ import { createContext, useContext } from "react";
 
 import { ProjectDialogs } from "@/components/editor/project-dialogs";
 import {
-  useProjectDialogs,
-  type UseProjectDialogsReturn,
-} from "@/hooks/use-project-dialogs";
+  useProjectActions,
+  type UseProjectActionsReturn,
+} from "@/hooks/use-project-actions";
 
-const ProjectDialogsContext = createContext<UseProjectDialogsReturn | null>(
+const ProjectDialogsContext = createContext<UseProjectActionsReturn | null>(
   null
 );
 
@@ -17,7 +17,7 @@ export function ProjectDialogsProvider({
 }: {
   children: React.ReactNode;
 }) {
-  const dialogs = useProjectDialogs();
+  const dialogs = useProjectActions();
 
   return (
     <ProjectDialogsContext.Provider value={dialogs}>
@@ -27,7 +27,7 @@ export function ProjectDialogsProvider({
   );
 }
 
-export function useProjectDialogsContext(): UseProjectDialogsReturn {
+export function useProjectDialogsContext(): UseProjectActionsReturn {
   const context = useContext(ProjectDialogsContext);
   if (!context) {
     throw new Error(

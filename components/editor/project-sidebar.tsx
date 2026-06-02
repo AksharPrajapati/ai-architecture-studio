@@ -7,15 +7,14 @@ import { useProjectDialogsContext } from "@/components/editor/project-dialogs-pr
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  MOCK_OWNED_PROJECTS,
-  MOCK_SHARED_PROJECTS,
-} from "@/lib/projects/mock-projects";
 import { cn } from "@/lib/utils";
+import type { Project, SharedProject } from "@/types/project";
 
 interface ProjectSidebarProps {
   isOpen: boolean;
   onClose: () => void;
+  ownedProjects: Project[];
+  sharedProjects: SharedProject[];
   className?: string;
 }
 
@@ -27,11 +26,17 @@ function ProjectTabPlaceholder({ message }: { message: string }) {
   );
 }
 
-export function ProjectSidebar({ isOpen, onClose, className }: ProjectSidebarProps) {
+export function ProjectSidebar({
+  isOpen,
+  onClose,
+  ownedProjects,
+  sharedProjects,
+  className,
+}: ProjectSidebarProps) {
   const { openCreate, openRename, openDelete } = useProjectDialogsContext();
 
-  const hasOwnedProjects = MOCK_OWNED_PROJECTS.length > 0;
-  const hasSharedProjects = MOCK_SHARED_PROJECTS.length > 0;
+  const hasOwnedProjects = ownedProjects.length > 0;
+  const hasSharedProjects = sharedProjects.length > 0;
 
   return (
     <aside
@@ -65,7 +70,7 @@ export function ProjectSidebar({ isOpen, onClose, className }: ProjectSidebarPro
           <TabsContent value="my-projects" className="flex min-h-[12rem] flex-col px-2 py-2">
             {hasOwnedProjects ? (
               <ul className="flex flex-col gap-0.5">
-                {MOCK_OWNED_PROJECTS.map((project) => (
+                {ownedProjects.map((project) => (
                   <li key={project.id}>
                     <ProjectListItem
                       project={project}
@@ -83,7 +88,7 @@ export function ProjectSidebar({ isOpen, onClose, className }: ProjectSidebarPro
           <TabsContent value="shared" className="flex min-h-[12rem] flex-col px-2 py-2">
             {hasSharedProjects ? (
               <ul className="flex flex-col gap-0.5">
-                {MOCK_SHARED_PROJECTS.map((project) => (
+                {sharedProjects.map((project) => (
                   <li key={project.id}>
                     <ProjectListItem
                       project={project}

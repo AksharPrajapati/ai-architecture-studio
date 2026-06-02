@@ -13,10 +13,10 @@ import {
   EditorDialogTitle,
 } from "@/components/editor/editor-dialog";
 import { Button } from "@/components/ui/button";
-import type { UseProjectDialogsReturn } from "@/hooks/use-project-dialogs";
+import type { UseProjectActionsReturn } from "@/hooks/use-project-actions";
 
 interface ProjectDialogsProps {
-  dialogs: UseProjectDialogsReturn;
+  dialogs: UseProjectActionsReturn;
 }
 
 function ProjectNameField({
@@ -66,7 +66,7 @@ export function ProjectDialogs({ dialogs }: ProjectDialogsProps) {
     mode,
     projectName,
     setProjectName,
-    slugPreview,
+    roomIdPreview,
     activeProject,
     isLoading,
     submitCreate,
@@ -104,15 +104,15 @@ export function ProjectDialogs({ dialogs }: ProjectDialogsProps) {
               label="Project name"
               value={projectName}
               onChange={setProjectName}
-              onSubmit={submitCreate}
+              onSubmit={() => void submitCreate()}
               disabled={isLoading}
             />
             <div className="flex flex-col gap-2">
               <span className="text-sm font-medium text-copy-primary">
-                Slug preview
+                Room ID preview
               </span>
               <p className="font-mono text-sm text-copy-secondary">
-                {slugPreview}
+                {roomIdPreview}
               </p>
             </div>
           </EditorDialogBody>
@@ -128,7 +128,7 @@ export function ProjectDialogs({ dialogs }: ProjectDialogsProps) {
             <Button
               type="button"
               disabled={!projectName.trim() || isLoading}
-              onClick={submitCreate}
+              onClick={() => void submitCreate()}
             >
               {isLoading ? "Creating…" : "Create Project"}
             </Button>
@@ -153,7 +153,7 @@ export function ProjectDialogs({ dialogs }: ProjectDialogsProps) {
               label="Project name"
               value={projectName}
               onChange={setProjectName}
-              onSubmit={submitRename}
+              onSubmit={() => void submitRename()}
               inputRef={renameInputRef}
               disabled={isLoading}
             />
@@ -170,7 +170,7 @@ export function ProjectDialogs({ dialogs }: ProjectDialogsProps) {
             <Button
               type="button"
               disabled={!projectName.trim() || isLoading}
-              onClick={submitRename}
+              onClick={() => void submitRename()}
             >
               {isLoading ? "Saving…" : "Save"}
             </Button>
@@ -203,7 +203,7 @@ export function ProjectDialogs({ dialogs }: ProjectDialogsProps) {
               type="button"
               variant="destructive"
               disabled={isLoading}
-              onClick={submitDelete}
+              onClick={() => void submitDelete()}
             >
               {isLoading ? "Deleting…" : "Delete Project"}
             </Button>
