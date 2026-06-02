@@ -1,19 +1,9 @@
-import { EditorLayout } from "@/components/editor/editor-layout";
-import { getEditorProjectLists } from "@/lib/projects/data";
+import { ProjectDialogsProvider } from "@/components/editor/project-dialogs-provider";
 
-export default async function EditorRouteLayout({
+export default function EditorRouteLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const { ownedProjects, sharedProjects } = await getEditorProjectLists();
-
-  return (
-    <EditorLayout
-      ownedProjects={ownedProjects}
-      sharedProjects={sharedProjects}
-    >
-      {children}
-    </EditorLayout>
-  );
+  return <ProjectDialogsProvider>{children}</ProjectDialogsProvider>;
 }
