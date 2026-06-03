@@ -4,6 +4,7 @@ import { UserButton } from "@clerk/nextjs";
 import { Share2, Sparkles } from "lucide-react";
 import { useState } from "react";
 
+import { CanvasWrapper } from "@/components/editor/canvas-wrapper";
 import { EditorNavbar } from "@/components/editor/editor-navbar";
 import { ProjectSidebar } from "@/components/editor/project-sidebar";
 import { ShareDialog } from "@/components/editor/share-dialog";
@@ -84,9 +85,7 @@ export function WorkspaceLayout({
       />
       <div className="relative flex min-h-0 flex-1">
         <main className="flex min-h-0 min-w-0 flex-1 flex-col bg-base">
-          <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
-            <p className="text-sm text-copy-muted">Canvas coming soon</p>
-          </div>
+          <CanvasWrapper roomId={roomId} />
         </main>
         <aside
           aria-hidden={!isAiSidebarOpen}
