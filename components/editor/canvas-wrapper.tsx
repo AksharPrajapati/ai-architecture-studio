@@ -8,9 +8,12 @@ import {
 } from "@liveblocks/react";
 
 import { Canvas } from "@/components/editor/canvas";
+import type { CanvasTemplate } from "@/components/editor/starter-templates";
 
 interface CanvasWrapperProps {
   roomId: string;
+  templateToImport?: CanvasTemplate | null;
+  onTemplateImported?: () => void;
 }
 
 class CanvasErrorBoundary extends Component<
@@ -38,7 +41,11 @@ class CanvasErrorBoundary extends Component<
   }
 }
 
-export function CanvasWrapper({ roomId }: CanvasWrapperProps) {
+export function CanvasWrapper({
+  roomId,
+  templateToImport,
+  onTemplateImported,
+}: CanvasWrapperProps) {
   return (
     <CanvasErrorBoundary>
       <LiveblocksProvider authEndpoint="/api/liveblocks-auth">
@@ -53,7 +60,10 @@ export function CanvasWrapper({ roomId }: CanvasWrapperProps) {
               </div>
             }
           >
-            <Canvas />
+            <Canvas
+              templateToImport={templateToImport}
+              onTemplateImported={onTemplateImported}
+            />
           </ClientSideSuspense>
         </RoomProvider>
       </LiveblocksProvider>

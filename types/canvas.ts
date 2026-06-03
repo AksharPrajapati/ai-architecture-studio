@@ -33,11 +33,16 @@ export const NODE_SHAPES: NodeShape[] = [
 export interface CanvasNodeData extends Record<string, unknown> {
   label: string;
   color: string;
+  textColor: string;
   shape: NodeShape;
 }
 
+export interface CanvasEdgeData extends Record<string, unknown> {
+  label?: string;
+}
+
 export type CanvasNode = Node<CanvasNodeData, "canvasNode">;
-export type CanvasEdge = Edge<Record<string, unknown>, "canvasEdge">;
+export type CanvasEdge = Edge<CanvasEdgeData, "canvasEdge">;
 
 export interface ShapeDragPayload {
   shape: NodeShape;

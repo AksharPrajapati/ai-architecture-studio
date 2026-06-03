@@ -1,17 +1,19 @@
 "use client";
 
 import { UserButton } from "@clerk/nextjs";
-import { Share2, Sparkles } from "lucide-react";
+import { LayoutTemplate, Share2, Sparkles } from "lucide-react";
 import { useState } from "react";
 
 import { CanvasWrapper } from "@/components/editor/canvas-wrapper";
 import { EditorNavbar } from "@/components/editor/editor-navbar";
 import { ProjectSidebar } from "@/components/editor/project-sidebar";
 import { ShareDialog } from "@/components/editor/share-dialog";
+import { StarterTemplatesModal } from "@/components/editor/starter-templates-modal";
 import { Button } from "@/components/ui/button";
 import { useShareDialog } from "@/hooks/use-share-dialog";
 import { cn } from "@/lib/utils";
 import type { Project, SharedProject } from "@/types/project";
+import type { CanvasTemplate } from "@/components/editor/starter-templates";
 
 interface WorkspaceLayoutProps {
   projectName: string;
@@ -31,7 +33,14 @@ export function WorkspaceLayout({
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isAiSidebarOpen, setIsAiSidebarOpen] = useState(false);
   const [isShareOpen, setIsShareOpen] = useState(false);
+  const [isTemplatesOpen, setIsTemplatesOpen] = useState(false);
+  const [templateToImport, setTemplateToImport] = useState<CanvasTemplate | null>(null);
+
   const share = useShareDialog(roomId, isOwner, isShareOpen);
+
+  function handleImportTemplate(template: CanvasTemplate) {
+    setTemplateToImport(template);
+  }
 
   return (
     <div className="flex h-screen flex-col bg-base">
@@ -45,6 +54,15 @@ export function WorkspaceLayout({
         }
         right={
           <>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsTemplatesOpen(true)}
+            >
+              <LayoutTemplate className="h-4 w-4" />
+              Templates
+            </Button>
             <Button
               type="button"
               variant="outline"
@@ -85,7 +103,11 @@ export function WorkspaceLayout({
       />
       <div className="relative flex min-h-0 flex-1">
         <main className="flex min-h-0 min-w-0 flex-1 flex-col bg-base">
-          <CanvasWrapper roomId={roomId} />
+          <CanvasWrapper
+            roomId={roomId}
+            templateToImport={templateToImport}
+            onTemplateImported={() => setTemplateToImport(null)}
+          />
         </main>
         <aside
           aria-hidden={!isAiSidebarOpen}
@@ -108,6 +130,11 @@ export function WorkspaceLayout({
         open={isShareOpen}
         onOpenChange={setIsShareOpen}
         share={share}
+      />
+      <StarterTemplatesModal
+        open={isTemplatesOpen}
+        onOpenChange={setIsTemplatesOpen}
+        onImport={handleImportTemplate}
       />
     </div>
   );
