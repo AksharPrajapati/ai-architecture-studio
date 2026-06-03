@@ -1,6 +1,7 @@
 "use client";
 
 import { Pencil, Trash2 } from "lucide-react";
+import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
 import type { Project } from "@/types/project";
@@ -9,6 +10,7 @@ import { cn } from "@/lib/utils";
 interface ProjectListItemProps {
   project: Project;
   subtitle?: string;
+  isActive?: boolean;
   showActions?: boolean;
   onRename?: (project: Project) => void;
   onDelete?: (project: Project) => void;
@@ -17,6 +19,7 @@ interface ProjectListItemProps {
 export function ProjectListItem({
   project,
   subtitle,
+  isActive = false,
   showActions = false,
   onRename,
   onDelete,
@@ -24,10 +27,14 @@ export function ProjectListItem({
   return (
     <div
       className={cn(
-        "group flex items-center gap-2 rounded-xl px-3 py-2.5 transition-colors hover:bg-subtle/80"
+        "group flex items-center gap-2 rounded-xl px-3 py-2.5 transition-colors hover:bg-subtle/80",
+        isActive && "bg-accent-dim ring-1 ring-brand/30",
       )}
     >
-      <div className="min-w-0 flex-1 text-left">
+      <Link
+        href={`/editor/${project.id}`}
+        className="min-w-0 flex-1 text-left outline-none focus-visible:ring-2 focus-visible:ring-brand/50 rounded-lg"
+      >
         <p className="truncate text-sm font-medium text-copy-primary">
           {project.name}
         </p>
@@ -38,7 +45,7 @@ export function ProjectListItem({
             {project.slug}
           </p>
         )}
-      </div>
+      </Link>
 
       {showActions ? (
         <div className="flex shrink-0 items-center gap-0.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">

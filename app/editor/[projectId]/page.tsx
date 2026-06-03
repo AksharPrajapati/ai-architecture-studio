@@ -1,3 +1,15 @@
+import { redirect } from "next/navigation";
+
+import { AccessDenied } from "@/components/editor/access-denied";
+import { WorkspaceLayout } from "@/components/editor/workspace-layout";
+import { getClerkAuthPaths } from "@/lib/clerk";
+import { getEditorProjectLists } from "@/lib/projects/data";
+import { findProjectById } from "@/lib/projects/service";
+import {
+  getCurrentUserIdentity,
+  userHasProjectAccess,
+} from "@/lib/project-access";
+
 interface ProjectWorkspacePageProps {
   params: Promise<{ projectId: string }>;
 }
@@ -7,10 +19,31 @@ export default async function ProjectWorkspacePage({
 }: ProjectWorkspacePageProps) {
   const { projectId } = await params;
 
+  const identity = await getCurrentUserIdentity();
+
+  if (!identity) {
+    redirect(getClerkAuthPaths().signIn);
+  }
+
+  const project = await findProjectById(projectId);
+
+  if (!project || !(await userHasProjectAccess(project, identity))) {
+    return (
+      <div className="flex h-screen flex-col bg-base">
+        <AccessDenied />
+      </div>
+    );
+  }
+
+  const { ownedProjects, sharedProjects } = await getEditorProjectLists();
+
   return (
-    <div className="flex h-full flex-col items-center justify-center px-6 text-center">
-      <h1 className="text-lg font-medium text-copy-primary">Workspace</h1>
-      <p className="mt-2 font-mono text-sm text-copy-muted">{projectId}</p>
-    </div>
+    <WorkspaceLayout
+      projectName={project.name}
+      roomId={projectId}
+      isOwner={project.ownerId === identity.userId}
+      ownedProjects={ownedProjects}
+      sharedProjects={sharedProjects}
+    />
   );
 }
