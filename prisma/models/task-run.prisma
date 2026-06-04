@@ -1,0 +1,20 @@
+model TaskRun {
+  id        String        @id @default(cuid())
+  project   Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId String
+  taskId    String
+  runId     String        @unique
+  status    TaskRunStatus @default(PENDING)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  @@index([projectId, createdAt])
+}
+
+enum TaskRunStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELLED
+}

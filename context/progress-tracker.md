@@ -42,6 +42,15 @@ Update this file whenever the current phase, active feature, or implementation s
 
 - Next feature unit in `context/feature-specs/`.
 
+## Trigger.dev Setup
+
+- `@trigger.dev/sdk@^4.x` installed.
+- `trigger.config.ts` at project root; `TRIGGER_PROJECT_REF` env var sets the project reference.
+- Skeleton tasks in `trigger/`: `generate-architecture.ts` (id: `generate-architecture`) and `generate-spec.ts` (id: `generate-spec`).
+- `TaskRun` Prisma model added (`prisma/models/task-run.prisma`), related to `Project` via `projectId`, with `runId` (Trigger.dev run handle), `taskId`, and `TaskRunStatus` enum.
+- Migration `add_task_runs` applied.
+- `npm run trigger:dev` runs the local dev worker; `npm run trigger:deploy` deploys to Trigger.dev cloud.
+
 ## Open Questions
 
 - Add unresolved product or implementation questions here.

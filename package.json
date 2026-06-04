@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "trigger:dev": "trigger dev",
+    "trigger:deploy": "trigger deploy"
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",
@@ -19,6 +21,7 @@
     "@liveblocks/react-ui": "^3.19.4",
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
+    "@trigger.dev/sdk": "4.4.6",
     "@vercel/blob": "^2.4.0",
     "@xyflow/react": "^12.11.0",
     "class-variance-authority": "^0.7.1",
