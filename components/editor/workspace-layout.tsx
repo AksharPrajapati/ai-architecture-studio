@@ -1,9 +1,9 @@
 "use client";
 
-import { UserButton } from "@clerk/nextjs";
-import { LayoutTemplate, Share2, Sparkles } from "lucide-react";
-import { useState } from "react";
+import { CheckCircle2, Loader2, LayoutTemplate, Share2, Sparkles, XCircle } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
 
+import { AiSidebar } from "@/components/editor/ai-sidebar";
 import { CanvasWrapper } from "@/components/editor/canvas-wrapper";
 import { EditorNavbar } from "@/components/editor/editor-navbar";
 import { ProjectSidebar } from "@/components/editor/project-sidebar";
@@ -11,7 +11,7 @@ import { ShareDialog } from "@/components/editor/share-dialog";
 import { StarterTemplatesModal } from "@/components/editor/starter-templates-modal";
 import { Button } from "@/components/ui/button";
 import { useShareDialog } from "@/hooks/use-share-dialog";
-import { cn } from "@/lib/utils";
+import type { SaveStatus } from "@/hooks/use-canvas-autosave";
 import type { Project, SharedProject } from "@/types/project";
 import type { CanvasTemplate } from "@/components/editor/starter-templates";
 
@@ -21,6 +21,35 @@ interface WorkspaceLayoutProps {
   isOwner: boolean;
   ownedProjects: Project[];
   sharedProjects: SharedProject[];
+}
+
+function SaveStatusIndicator({ status }: { status: SaveStatus }) {
+  if (status === "idle") return null;
+
+  if (status === "saving") {
+    return (
+      <span className="flex items-center gap-1 text-xs text-copy-muted">
+        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        Saving…
+      </span>
+    );
+  }
+
+  if (status === "saved") {
+    return (
+      <span className="flex items-center gap-1 text-xs text-state-success">
+        <CheckCircle2 className="h-3.5 w-3.5" />
+        Saved
+      </span>
+    );
+  }
+
+  return (
+    <span className="flex items-center gap-1 text-xs text-state-error">
+      <XCircle className="h-3.5 w-3.5" />
+      Error
+    </span>
+  );
 }
 
 export function WorkspaceLayout({
@@ -35,8 +64,20 @@ export function WorkspaceLayout({
   const [isShareOpen, setIsShareOpen] = useState(false);
   const [isTemplatesOpen, setIsTemplatesOpen] = useState(false);
   const [templateToImport, setTemplateToImport] = useState<CanvasTemplate | null>(null);
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
 
   const share = useShareDialog(roomId, isOwner, isShareOpen);
+
+  // Auto-reset "saved" indicator after 2 seconds
+  useEffect(() => {
+    if (saveStatus !== "saved") return;
+    const timer = setTimeout(() => setSaveStatus("idle"), 2000);
+    return () => clearTimeout(timer);
+  }, [saveStatus]);
+
+  const handleSaveStatusChange = useCallback((status: SaveStatus) => {
+    setSaveStatus(status);
+  }, []);
 
   function handleImportTemplate(template: CanvasTemplate) {
     setTemplateToImport(template);
@@ -54,6 +95,7 @@ export function WorkspaceLayout({
         }
         right={
           <>
+            <SaveStatusIndicator status={saveStatus} />
             <Button
               type="button"
               variant="ghost"
@@ -82,7 +124,6 @@ export function WorkspaceLayout({
             >
               <Sparkles className="h-5 w-5 text-accent-ai-text" />
             </Button>
-            <UserButton />
           </>
         }
       />
@@ -107,24 +148,13 @@ export function WorkspaceLayout({
             roomId={roomId}
             templateToImport={templateToImport}
             onTemplateImported={() => setTemplateToImport(null)}
+            onSaveStatusChange={handleSaveStatusChange}
           />
         </main>
-        <aside
-          aria-hidden={!isAiSidebarOpen}
-          className={cn(
-            "absolute top-0 right-0 z-40 flex h-full w-80 flex-col border-l border-surface-border bg-surface/95 shadow-lg backdrop-blur-sm transition-transform duration-300 ease-in-out",
-            isAiSidebarOpen
-              ? "translate-x-0"
-              : "pointer-events-none translate-x-full",
-          )}
-        >
-          <div className="border-b border-surface-border px-4 py-3">
-            <h2 className="text-sm font-medium text-accent-ai-text">AI Assistant</h2>
-          </div>
-          <div className="flex flex-1 items-center justify-center px-4 text-center">
-            <p className="text-sm text-copy-muted">AI chat coming soon</p>
-          </div>
-        </aside>
+        <AiSidebar
+          isOpen={isAiSidebarOpen}
+          onClose={() => setIsAiSidebarOpen(false)}
+        />
       </div>
       <ShareDialog
         open={isShareOpen}

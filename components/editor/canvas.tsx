@@ -16,13 +16,16 @@ import {
   type Connection,
 } from "@xyflow/react";
 import { useLiveblocksFlow } from "@liveblocks/react-flow";
-import { useUndo, useRedo } from "@liveblocks/react";
+import { useUndo, useRedo, useMyPresence } from "@liveblocks/react";
 
 import { CanvasNodeComponent } from "@/components/editor/canvas-node";
 import { CanvasEdgeComponent } from "@/components/editor/canvas-edge";
 import { CanvasControls } from "@/components/editor/canvas-controls";
 import { ShapePanel } from "@/components/editor/shape-panel";
+import { PresenceAvatars } from "@/components/editor/presence-avatars";
+import { LiveCursors } from "@/components/editor/live-cursors";
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
+import { useCanvasAutosave, type SaveStatus } from "@/hooks/use-canvas-autosave";
 import {
   DEFAULT_NODE_COLOR,
   SHAPE_DRAG_TYPE,
@@ -49,9 +52,16 @@ let nodeCounter = 0;
 interface CanvasInnerProps {
   templateToImport?: CanvasTemplate | null;
   onTemplateImported?: () => void;
+  projectId: string;
+  onSaveStatusChange?: (status: SaveStatus) => void;
 }
 
-function CanvasInner({ templateToImport, onTemplateImported }: CanvasInnerProps) {
+function CanvasInner({
+  templateToImport,
+  onTemplateImported,
+  projectId,
+  onSaveStatusChange,
+}: CanvasInnerProps) {
   const { nodes, edges, onNodesChange, onEdgesChange, onDelete } =
     useLiveblocksFlow<CanvasNode, CanvasEdge>({ suspense: true });
 
@@ -60,10 +70,11 @@ function CanvasInner({ templateToImport, onTemplateImported }: CanvasInnerProps)
 
   const undo = useUndo();
   const redo = useRedo();
+  const [, updateMyPresence] = useMyPresence();
 
   useKeyboardShortcuts(instance, undo, redo);
 
-  // Keep stable refs so the template effect never stales
+  // Keep stable refs so template effect and load effect never stale
   const nodesRef = useRef(nodes);
   const edgesRef = useRef(edges);
   const onNodesChangeRef = useRef(onNodesChange);
@@ -72,6 +83,40 @@ function CanvasInner({ templateToImport, onTemplateImported }: CanvasInnerProps)
   edgesRef.current = edges;
   onNodesChangeRef.current = onNodesChange;
   onEdgesChangeRef.current = onEdgesChange;
+
+  // Load saved canvas on mount — only when the Liveblocks room is empty
+  useEffect(() => {
+    async function loadSavedCanvas() {
+      if (nodesRef.current.length > 0 || edgesRef.current.length > 0) return;
+
+      try {
+        const res = await fetch(`/api/projects/${projectId}/canvas`);
+        if (!res.ok) return;
+
+        const { canvas } = (await res.json()) as {
+          canvas: { nodes: CanvasNode[]; edges: CanvasEdge[] } | null;
+        };
+        if (!canvas || (!canvas.nodes?.length && !canvas.edges?.length)) return;
+
+        if (canvas.nodes?.length) {
+          onNodesChangeRef.current(
+            canvas.nodes.map((n) => ({ type: "add" as const, item: n })),
+          );
+        }
+        if (canvas.edges?.length) {
+          onEdgesChangeRef.current(
+            canvas.edges.map((e) => ({ type: "add" as const, item: e })),
+          );
+        }
+        setTimeout(() => instance.fitView({ duration: 400 }), 100);
+      } catch {
+        // Silent — blob may not exist yet
+      }
+    }
+
+    void loadSavedCanvas();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Template import: clear canvas then add template nodes/edges
   useEffect(() => {
@@ -100,6 +145,14 @@ function CanvasInner({ templateToImport, onTemplateImported }: CanvasInnerProps)
     onTemplateImported?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [templateToImport]);
+
+  // Autosave — debounced, skips the first render
+  useCanvasAutosave({
+    nodes,
+    edges,
+    projectId,
+    onStatusChange: onSaveStatusChange,
+  });
 
   // Custom onConnect to ensure new edges use the canvasEdge type + arrow
   const onConnect = useCallback(
@@ -162,13 +215,30 @@ function CanvasInner({ templateToImport, onTemplateImported }: CanvasInnerProps)
     [screenToFlowPosition, onNodesChange],
   );
 
+  // Cursor broadcasting
+  const handleMouseMove = useCallback(
+    (event: React.MouseEvent) => {
+      const position = screenToFlowPosition({
+        x: event.clientX,
+        y: event.clientY,
+      });
+      updateMyPresence({ cursor: { x: position.x, y: position.y } });
+    },
+    [screenToFlowPosition, updateMyPresence],
+  );
+
+  const handleMouseLeave = useCallback(() => {
+    updateMyPresence({ cursor: null });
+  }, [updateMyPresence]);
+
   const defaultEdgeOptionsMemo = useMemo(() => defaultEdgeOptions, []);
 
   return (
     <div
-      className="h-full w-full"
+      className="relative h-full w-full"
       onDragOver={handleDragOver}
       onDrop={handleDrop}
+      onMouseLeave={handleMouseLeave}
     >
       <ReactFlow
         nodes={nodes}
@@ -181,10 +251,14 @@ function CanvasInner({ templateToImport, onTemplateImported }: CanvasInnerProps)
         edgeTypes={edgeTypes}
         defaultEdgeOptions={defaultEdgeOptionsMemo}
         connectionMode={ConnectionMode.Loose}
+        onMouseMove={handleMouseMove}
         fitView
       >
         <Background variant={BackgroundVariant.Dots} />
         <MiniMap />
+        <Panel position="top-right" className="m-2">
+          <PresenceAvatars />
+        </Panel>
         <Panel position="bottom-left" className="mb-4 ml-4">
           <CanvasControls />
         </Panel>
@@ -192,6 +266,7 @@ function CanvasInner({ templateToImport, onTemplateImported }: CanvasInnerProps)
           <ShapePanel />
         </Panel>
       </ReactFlow>
+      <LiveCursors />
     </div>
   );
 }
@@ -201,14 +276,23 @@ function CanvasInner({ templateToImport, onTemplateImported }: CanvasInnerProps)
 interface CanvasProps {
   templateToImport?: CanvasTemplate | null;
   onTemplateImported?: () => void;
+  projectId: string;
+  onSaveStatusChange?: (status: SaveStatus) => void;
 }
 
-export function Canvas({ templateToImport, onTemplateImported }: CanvasProps) {
+export function Canvas({
+  templateToImport,
+  onTemplateImported,
+  projectId,
+  onSaveStatusChange,
+}: CanvasProps) {
   return (
     <ReactFlowProvider>
       <CanvasInner
         templateToImport={templateToImport}
         onTemplateImported={onTemplateImported}
+        projectId={projectId}
+        onSaveStatusChange={onSaveStatusChange}
       />
     </ReactFlowProvider>
   );

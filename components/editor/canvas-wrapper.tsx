@@ -8,12 +8,14 @@ import {
 } from "@liveblocks/react";
 
 import { Canvas } from "@/components/editor/canvas";
+import type { SaveStatus } from "@/hooks/use-canvas-autosave";
 import type { CanvasTemplate } from "@/components/editor/starter-templates";
 
 interface CanvasWrapperProps {
   roomId: string;
   templateToImport?: CanvasTemplate | null;
   onTemplateImported?: () => void;
+  onSaveStatusChange?: (status: SaveStatus) => void;
 }
 
 class CanvasErrorBoundary extends Component<
@@ -45,13 +47,14 @@ export function CanvasWrapper({
   roomId,
   templateToImport,
   onTemplateImported,
+  onSaveStatusChange,
 }: CanvasWrapperProps) {
   return (
     <CanvasErrorBoundary>
       <LiveblocksProvider authEndpoint="/api/liveblocks-auth">
         <RoomProvider
           id={roomId}
-          initialPresence={{ cursor: null, isThinking: false }}
+          initialPresence={{ cursor: null, thinking: false }}
         >
           <ClientSideSuspense
             fallback={
@@ -63,6 +66,8 @@ export function CanvasWrapper({
             <Canvas
               templateToImport={templateToImport}
               onTemplateImported={onTemplateImported}
+              projectId={roomId}
+              onSaveStatusChange={onSaveStatusChange}
             />
           </ClientSideSuspense>
         </RoomProvider>
