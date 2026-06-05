@@ -16,7 +16,7 @@ import {
   type Connection,
 } from "@xyflow/react";
 import { useLiveblocksFlow } from "@liveblocks/react-flow";
-import { useUndo, useRedo, useMyPresence } from "@liveblocks/react";
+import { useUndo, useRedo, useMyPresence, useEventListener } from "@liveblocks/react";
 
 import { CanvasNodeComponent } from "@/components/editor/canvas-node";
 import { CanvasEdgeComponent } from "@/components/editor/canvas-edge";
@@ -31,6 +31,7 @@ import {
   SHAPE_DRAG_TYPE,
   type CanvasEdge,
   type CanvasNode,
+  type CanvasOperation,
   type ShapeDragPayload,
 } from "@/types/canvas";
 import type { CanvasTemplate } from "@/components/editor/starter-templates";
@@ -145,6 +146,55 @@ function CanvasInner({
     onTemplateImported?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [templateToImport]);
+
+  // AI canvas event listener — apply AI-generated operations from the background task
+  useEventListener(({ event }) => {
+    if (event.type === "ai-canvas-ops") {
+      const ops = event.operations as CanvasOperation[];
+      for (const op of ops) {
+        if (op.type === "add-node") {
+          const node: CanvasNode = {
+            id: op.node.id,
+            type: "canvasNode",
+            position: op.node.position,
+            width: op.node.width,
+            height: op.node.height,
+            data: op.node.data,
+          };
+          onNodesChangeRef.current([{ type: "add", item: node }]);
+        } else if (op.type === "delete-node") {
+          onNodesChangeRef.current([{ type: "remove", id: op.id }]);
+        } else if (op.type === "update-node") {
+          const current = nodesRef.current.find((n) => n.id === op.id);
+          if (current) {
+            onNodesChangeRef.current([{
+              type: "replace",
+              id: op.id,
+              item: {
+                ...current,
+                position: op.position ?? current.position,
+                width: op.width ?? current.width,
+                height: op.height ?? current.height,
+                data: op.data ?? current.data,
+              },
+            }]);
+          }
+        } else if (op.type === "add-edge") {
+          const edge: CanvasEdge = {
+            id: op.edge.id,
+            source: op.edge.source,
+            target: op.edge.target,
+            type: "canvasEdge",
+            data: op.edge.data.label ? { label: op.edge.data.label } : {},
+          };
+          onEdgesChangeRef.current([{ type: "add", item: edge }]);
+        } else if (op.type === "delete-edge") {
+          onEdgesChangeRef.current([{ type: "remove", id: op.id }]);
+        }
+      }
+      setTimeout(() => instance.fitView({ duration: 400 }), 200);
+    }
+  });
 
   // Autosave — debounced, skips the first render
   useCanvasAutosave({
