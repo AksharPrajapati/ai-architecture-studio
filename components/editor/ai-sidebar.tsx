@@ -264,7 +264,7 @@ function AiArchitectTab({ projectId }: { projectId: string }) {
                 <button
                   key={chip}
                   type="button"
-                  className="rounded-xl bg-subtle px-3 py-2 text-left text-xs text-ai-text transition-colors hover:bg-elevated"
+                  className="cursor-pointer rounded-xl bg-subtle px-3 py-2 text-left text-xs text-ai-text transition-colors hover:bg-elevated"
                   onClick={() => handleChipClick(chip)}
                 >
                   {chip}
@@ -584,7 +584,7 @@ function SpecsTab({ projectId }: { projectId: string }) {
               <button
                 key={spec.id}
                 type="button"
-                className="flex w-full items-start gap-3 rounded-2xl border border-surface-border bg-elevated p-3 text-left transition-colors hover:bg-subtle"
+                className="flex w-full cursor-pointer items-start gap-3 rounded-2xl border border-surface-border bg-elevated p-3 text-left transition-colors hover:bg-subtle"
                 onClick={() => setPreviewSpec(spec)}
               >
                 <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-subtle">
@@ -599,7 +599,7 @@ function SpecsTab({ projectId }: { projectId: string }) {
                   </p>
                   <button
                     type="button"
-                    className="mt-1.5 flex items-center gap-1 text-xs text-copy-muted hover:text-copy-primary"
+                    className="mt-1.5 flex cursor-pointer items-center gap-1 text-xs text-copy-muted hover:text-copy-primary"
                     onClick={(e) => handleDownload(spec, e)}
                   >
                     <Download className="h-3 w-3" />
@@ -628,7 +628,7 @@ export function AiSidebar({ isOpen, onClose, projectId }: AiSidebarProps) {
     <aside
       aria-hidden={!isOpen}
       className={cn(
-        "absolute top-0 right-0 z-40 flex h-full w-80 flex-col border-l border-surface-border bg-surface/95 shadow-lg backdrop-blur-sm transition-transform duration-300 ease-in-out",
+        "absolute top-0 right-0 z-40 flex h-full w-80 flex-col border-l border-surface-border bg-surface/95 shadow-xl backdrop-blur-sm transition-transform duration-300 ease-in-out",
         isOpen ? "translate-x-0" : "pointer-events-none translate-x-full",
       )}
     >

@@ -35,16 +35,17 @@ export function ProjectSidebar({
   activeProjectId,
   className,
 }: ProjectSidebarProps) {
-  const { openCreate, openRename, openDelete } = useProjectDialogsContext();
+  const { openCreate, openRename, openDelete, removedProjectIds } = useProjectDialogsContext();
 
-  const hasOwnedProjects = ownedProjects.length > 0;
+  const visibleOwnedProjects = ownedProjects.filter((p) => !removedProjectIds.has(p.id));
+  const hasOwnedProjects = visibleOwnedProjects.length > 0;
   const hasSharedProjects = sharedProjects.length > 0;
 
   return (
     <aside
       aria-hidden={!isOpen}
       className={cn(
-        "fixed top-12 left-0 z-40 flex h-[calc(100vh-3rem)] w-72 flex-col border-r border-surface-border bg-surface/95 shadow-lg backdrop-blur-sm transition-transform duration-300 ease-in-out",
+        "absolute top-0 left-0 z-40 flex h-full w-72 flex-col border-r border-surface-border bg-surface/95 shadow-xl backdrop-blur-sm transition-transform duration-300 ease-in-out",
         isOpen ? "translate-x-0" : "-translate-x-full pointer-events-none",
         className
       )}
@@ -72,7 +73,7 @@ export function ProjectSidebar({
           <TabsContent value="my-projects" className="flex min-h-[12rem] flex-col px-2 py-2">
             {hasOwnedProjects ? (
               <ul className="flex flex-col gap-0.5">
-                {ownedProjects.map((project) => (
+                {visibleOwnedProjects.map((project) => (
                   <li key={project.id}>
                     <ProjectListItem
                       project={project}

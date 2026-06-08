@@ -50,7 +50,7 @@ function ColorSwatch({
       onClick={onClick}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      className="h-5 w-5 rounded-full transition-all"
+      className="h-5 w-5 cursor-pointer rounded-full transition-all"
       style={{ backgroundColor: fill, boxShadow: shadow }}
     />
   );
@@ -60,10 +60,14 @@ function ColorSwatch({
 
 const HANDLES = (
   <>
-    <Handle type="source" position={Position.Top} />
-    <Handle type="source" position={Position.Right} />
-    <Handle type="source" position={Position.Bottom} />
-    <Handle type="source" position={Position.Left} />
+    <Handle type="source" position={Position.Top} id="top-source" />
+    <Handle type="target" position={Position.Top} id="top-target" />
+    <Handle type="source" position={Position.Right} id="right-source" />
+    <Handle type="target" position={Position.Right} id="right-target" />
+    <Handle type="source" position={Position.Bottom} id="bottom-source" />
+    <Handle type="target" position={Position.Bottom} id="bottom-target" />
+    <Handle type="source" position={Position.Left} id="left-source" />
+    <Handle type="target" position={Position.Left} id="left-target" />
   </>
 );
 
@@ -172,7 +176,7 @@ export function CanvasNodeComponent({
   ) : (
     <span
       onDoubleClick={startEditing}
-      className="select-none px-2 text-center text-sm font-medium leading-tight"
+      className="cursor-text select-none px-2 text-center text-sm font-medium leading-tight"
       style={{ color: textColor }}
     >
       {data.label || (

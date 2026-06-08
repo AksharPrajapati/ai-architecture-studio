@@ -95,7 +95,7 @@ export function WorkspaceLayout({
         chatMessages: new LiveList([]),
       }}
     >
-    <div className="flex h-screen flex-col bg-base">
+    <div className="flex h-screen flex-col bg-page">
       <EditorNavbar
         isSidebarOpen={isSidebarOpen}
         onSidebarToggle={() => setIsSidebarOpen((open) => !open)}
@@ -138,23 +138,23 @@ export function WorkspaceLayout({
           </>
         }
       />
-      {isSidebarOpen ? (
-        <button
-          type="button"
-          className="fixed inset-0 top-12 z-30 bg-black/50 md:hidden"
-          aria-label="Close projects sidebar"
-          onClick={() => setIsSidebarOpen(false)}
+      <div className="relative flex min-h-0 flex-1 overflow-hidden">
+        {isSidebarOpen ? (
+          <button
+            type="button"
+            className="absolute inset-0 z-30 bg-black/50 md:hidden"
+            aria-label="Close projects sidebar"
+            onClick={() => setIsSidebarOpen(false)}
+          />
+        ) : null}
+        <ProjectSidebar
+          isOpen={isSidebarOpen}
+          onClose={() => setIsSidebarOpen(false)}
+          ownedProjects={ownedProjects}
+          sharedProjects={sharedProjects}
+          activeProjectId={roomId}
         />
-      ) : null}
-      <ProjectSidebar
-        isOpen={isSidebarOpen}
-        onClose={() => setIsSidebarOpen(false)}
-        ownedProjects={ownedProjects}
-        sharedProjects={sharedProjects}
-        activeProjectId={roomId}
-      />
-      <div className="relative flex min-h-0 flex-1">
-        <main className="flex min-h-0 min-w-0 flex-1 flex-col bg-base">
+        <main className="flex min-h-0 min-w-0 flex-1 flex-col bg-page">
           <CanvasWrapper
             roomId={roomId}
             templateToImport={templateToImport}

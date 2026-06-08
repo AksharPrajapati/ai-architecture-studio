@@ -29,7 +29,7 @@ export default async function ProjectWorkspacePage({
 
   if (!project || !(await userHasProjectAccess(project, identity))) {
     return (
-      <div className="flex h-screen flex-col bg-base">
+      <div className="flex h-screen flex-col bg-page">
         <AccessDenied />
       </div>
     );

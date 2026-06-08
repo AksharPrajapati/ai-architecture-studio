@@ -24,27 +24,29 @@ export function EditorLayout({
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   return (
-    <div className={cn("flex h-screen flex-col bg-base", className)}>
+    <div className={cn("flex h-screen flex-col bg-page", className)}>
       <EditorNavbar
         isSidebarOpen={isSidebarOpen}
         onSidebarToggle={() => setIsSidebarOpen((open) => !open)}
         right={<UserButton />}
       />
-      {isSidebarOpen ? (
-        <button
-          type="button"
-          className="fixed inset-0 top-12 z-30 bg-black/50 md:hidden"
-          aria-label="Close projects sidebar"
-          onClick={() => setIsSidebarOpen(false)}
+      <div className="relative flex min-h-0 flex-1 overflow-hidden">
+        {isSidebarOpen ? (
+          <button
+            type="button"
+            className="absolute inset-0 z-30 bg-black/50 md:hidden"
+            aria-label="Close projects sidebar"
+            onClick={() => setIsSidebarOpen(false)}
+          />
+        ) : null}
+        <ProjectSidebar
+          isOpen={isSidebarOpen}
+          onClose={() => setIsSidebarOpen(false)}
+          ownedProjects={ownedProjects}
+          sharedProjects={sharedProjects}
         />
-      ) : null}
-      <ProjectSidebar
-        isOpen={isSidebarOpen}
-        onClose={() => setIsSidebarOpen(false)}
-        ownedProjects={ownedProjects}
-        sharedProjects={sharedProjects}
-      />
-      <main className="relative min-h-0 flex-1">{children}</main>
+        <main className="relative min-h-0 flex-1">{children}</main>
+      </div>
     </div>
   );
 }

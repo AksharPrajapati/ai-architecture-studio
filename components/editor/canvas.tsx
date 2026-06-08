@@ -3,12 +3,12 @@
 import "@xyflow/react/dist/style.css";
 
 import { useCallback, useEffect, useMemo, useRef } from "react";
+import { Loader2 } from "lucide-react";
 import {
   Background,
   BackgroundVariant,
   ConnectionMode,
   MarkerType,
-  MiniMap,
   Panel,
   ReactFlow,
   ReactFlowProvider,
@@ -16,7 +16,7 @@ import {
   type Connection,
 } from "@xyflow/react";
 import { useLiveblocksFlow } from "@liveblocks/react-flow";
-import { useUndo, useRedo, useMyPresence, useEventListener } from "@liveblocks/react";
+import { useUndo, useRedo, useMyPresence, useEventListener, useStorage } from "@liveblocks/react";
 
 import { CanvasNodeComponent } from "@/components/editor/canvas-node";
 import { CanvasEdgeComponent } from "@/components/editor/canvas-edge";
@@ -72,6 +72,9 @@ function CanvasInner({
   const undo = useUndo();
   const redo = useRedo();
   const [, updateMyPresence] = useMyPresence();
+
+  const aiStatus = useStorage((root) => root.aiStatus);
+  const isAiGenerating = aiStatus?.phase !== "complete";
 
   useKeyboardShortcuts(instance, undo, redo);
 
@@ -286,8 +289,8 @@ function CanvasInner({
   return (
     <div
       className="relative h-full w-full"
-      onDragOver={handleDragOver}
-      onDrop={handleDrop}
+      onDragOver={isAiGenerating ? undefined : handleDragOver}
+      onDrop={isAiGenerating ? undefined : handleDrop}
       onMouseLeave={handleMouseLeave}
     >
       <ReactFlow
@@ -295,17 +298,19 @@ function CanvasInner({
         edges={edges}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
-        onConnect={onConnect}
-        onDelete={onDelete}
+        onConnect={isAiGenerating ? undefined : onConnect}
+        onDelete={isAiGenerating ? undefined : onDelete}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
         defaultEdgeOptions={defaultEdgeOptionsMemo}
         connectionMode={ConnectionMode.Loose}
         onMouseMove={handleMouseMove}
+        nodesDraggable={!isAiGenerating}
+        nodesConnectable={!isAiGenerating}
+        elementsSelectable={!isAiGenerating}
         fitView
       >
         <Background variant={BackgroundVariant.Dots} />
-        <MiniMap />
         <Panel position="top-right" className="m-2">
           <PresenceAvatars />
         </Panel>
@@ -317,6 +322,14 @@ function CanvasInner({
         </Panel>
       </ReactFlow>
       <LiveCursors />
+      {isAiGenerating && (
+        <div className="pointer-events-none absolute inset-0 z-10 flex items-start justify-center pt-8">
+          <div className="flex items-center gap-2 rounded-full border border-surface-border bg-surface/90 px-4 py-2 shadow-lg backdrop-blur-sm">
+            <Loader2 className="h-3.5 w-3.5 animate-spin text-ai-text" />
+            <span className="text-xs text-copy-muted">AI is designing…</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

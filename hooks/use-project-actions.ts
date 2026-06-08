@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, usePathname } from "next/navigation";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { buildProjectRoomId, generateShortSuffix } from "@/lib/projects/room-id";
 import { slugifyProjectName } from "@/lib/projects/slug";
@@ -25,6 +25,8 @@ export function useProjectActions() {
   const [projectName, setProjectName] = useState("");
   const [activeProject, setActiveProject] = useState<Project | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isNavigating, setIsNavigating] = useState(false);
+  const [removedProjectIds, setRemovedProjectIds] = useState<Set<string>>(new Set());
   const [createSuffix, setCreateSuffix] = useState(() => generateShortSuffix());
 
   const roomIdPreview = useMemo(
@@ -55,6 +57,11 @@ export function useProjectActions() {
     setProjectName("");
     setMode("delete");
   }, []);
+
+  // Clear navigating state when pathname changes (navigation complete)
+  useEffect(() => {
+    setIsNavigating(false);
+  }, [pathname]);
 
   const closeDialog = useCallback(() => {
     if (isLoading) return;
@@ -93,6 +100,7 @@ export function useProjectActions() {
       setMode(null);
       setActiveProject(null);
       setProjectName("");
+      setIsNavigating(true);
       router.push(`/editor/${projectId}`);
       router.refresh();
     } finally {
@@ -148,6 +156,7 @@ export function useProjectActions() {
       setMode(null);
       setActiveProject(null);
       setProjectName("");
+      setRemovedProjectIds((prev) => new Set([...prev, deletedProjectId]));
 
       if (isActiveWorkspace) {
         router.push("/editor");
@@ -174,6 +183,8 @@ export function useProjectActions() {
     roomIdPreview,
     activeProject,
     isLoading,
+    isNavigating,
+    removedProjectIds,
     openCreate,
     openRename,
     openDelete,
