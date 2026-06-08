@@ -83,6 +83,13 @@ Always produce a complete, connected architecture. Use meaningful IDs (kebab-cas
 export const designAgentTask = task({
   id: "design-agent",
   maxDuration: 300,
+  retry: {
+    maxAttempts: 5,
+    factor: 2,
+    minTimeoutInMs: 5000,
+    maxTimeoutInMs: 60_000,
+    randomize: true,
+  },
   run: async (payload: DesignAgentPayload) => {
     const { prompt, roomId } = payload;
 
@@ -112,6 +119,7 @@ export const designAgentTask = task({
         schema: DesignSchema,
         system: SYSTEM_PROMPT,
         prompt,
+        maxRetries: 0,
       });
 
       logger.info("Architecture generated", {
