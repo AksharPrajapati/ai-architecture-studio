@@ -1,5 +1,6 @@
 "use client";
 
+import { Loader2 } from "lucide-react";
 import { useOthers } from "@liveblocks/react";
 import { useStore } from "@xyflow/react";
 import { useUser } from "@clerk/nextjs";
@@ -9,9 +10,10 @@ interface CursorProps {
   y: number;
   name: string;
   color: string;
+  thinking: boolean;
 }
 
-function Cursor({ x, y, name, color }: CursorProps) {
+function Cursor({ x, y, name, color, thinking }: CursorProps) {
   const transform = useStore((s) => s.transform);
   const [tx, ty, zoom] = transform;
 
@@ -39,9 +41,12 @@ function Cursor({ x, y, name, color }: CursorProps) {
         />
       </svg>
       <div
-        className="ml-2 mt-0.5 rounded px-1.5 py-0.5 text-xs font-medium text-white whitespace-nowrap"
+        className="ml-2 mt-0.5 flex items-center gap-1 rounded px-1.5 py-0.5 text-xs font-medium text-white whitespace-nowrap"
         style={{ backgroundColor: color }}
       >
+        {thinking && (
+          <Loader2 className="h-2.5 w-2.5 animate-spin" />
+        )}
         {name}
       </div>
     </div>
@@ -70,6 +75,7 @@ export function LiveCursors() {
               y={cursor.y}
               name={other.info?.name ?? "Unknown"}
               color={other.info?.color ?? "#808090"}
+              thinking={other.presence.thinking ?? false}
             />
           );
         })}

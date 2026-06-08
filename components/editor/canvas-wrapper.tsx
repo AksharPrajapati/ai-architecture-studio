@@ -1,11 +1,7 @@
 "use client";
 
 import { Component, type ReactNode } from "react";
-import {
-  ClientSideSuspense,
-  LiveblocksProvider,
-  RoomProvider,
-} from "@liveblocks/react";
+import { ClientSideSuspense } from "@liveblocks/react";
 
 import { Canvas } from "@/components/editor/canvas";
 import type { SaveStatus } from "@/hooks/use-canvas-autosave";
@@ -51,27 +47,20 @@ export function CanvasWrapper({
 }: CanvasWrapperProps) {
   return (
     <CanvasErrorBoundary>
-      <LiveblocksProvider authEndpoint="/api/liveblocks-auth">
-        <RoomProvider
-          id={roomId}
-          initialPresence={{ cursor: null, thinking: false }}
-        >
-          <ClientSideSuspense
-            fallback={
-              <div className="flex h-full items-center justify-center">
-                <p className="text-sm text-copy-muted">Connecting…</p>
-              </div>
-            }
-          >
-            <Canvas
-              templateToImport={templateToImport}
-              onTemplateImported={onTemplateImported}
-              projectId={roomId}
-              onSaveStatusChange={onSaveStatusChange}
-            />
-          </ClientSideSuspense>
-        </RoomProvider>
-      </LiveblocksProvider>
+      <ClientSideSuspense
+        fallback={
+          <div className="flex h-full items-center justify-center">
+            <p className="text-sm text-copy-muted">Connecting…</p>
+          </div>
+        }
+      >
+        <Canvas
+          templateToImport={templateToImport}
+          onTemplateImported={onTemplateImported}
+          projectId={roomId}
+          onSaveStatusChange={onSaveStatusChange}
+        />
+      </ClientSideSuspense>
     </CanvasErrorBoundary>
   );
 }

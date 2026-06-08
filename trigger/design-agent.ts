@@ -7,12 +7,23 @@ import { getLiveblocks } from "@/lib/liveblocks";
 import { NODE_COLORS, type CanvasOperation } from "@/types/canvas";
 
 const NodeSchema = z.object({
-  id: z.string().describe("Unique identifier for this node, e.g. 'api-gateway'"),
+  id: z
+    .string()
+    .describe("Unique identifier for this node, e.g. 'api-gateway'"),
   label: z.string().describe("Short display label for the node"),
-  shape: z.enum(["rectangle", "diamond", "circle", "pill", "cylinder", "hexagon"]).describe(
-    "rectangle=service/component, cylinder=database/storage, circle=user/actor, pill=event/queue, hexagon=external system, diamond=gateway/router"
-  ),
-  colorIndex: z.number().int().min(0).max(7).describe("Index into the color palette (0=dark, 1=blue, 2=purple, 3=orange, 4=red, 5=pink, 6=green, 7=teal)"),
+  shape: z
+    .enum(["rectangle", "diamond", "circle", "pill", "cylinder", "hexagon"])
+    .describe(
+      "rectangle=service/component, cylinder=database/storage, circle=user/actor, pill=event/queue, hexagon=external system, diamond=gateway/router",
+    ),
+  colorIndex: z
+    .number()
+    .int()
+    .min(0)
+    .max(7)
+    .describe(
+      "Index into the color palette (0=dark, 1=blue, 2=purple, 3=orange, 4=red, 5=pink, 6=green, 7=teal)",
+    ),
   x: z.number().describe("X position in canvas coordinates"),
   y: z.number().describe("Y position in canvas coordinates"),
   width: z.number().describe("Node width in pixels, typically 140-200"),
@@ -22,13 +33,18 @@ const NodeSchema = z.object({
 const EdgeSchema = z.object({
   source: z.string().describe("ID of the source node"),
   target: z.string().describe("ID of the target node"),
-  label: z.string().optional().describe("Optional short label for this connection"),
+  label: z
+    .string()
+    .optional()
+    .describe("Optional short label for this connection"),
 });
 
 const DesignSchema = z.object({
   nodes: z.array(NodeSchema).min(3).describe("All nodes in the architecture"),
   edges: z.array(EdgeSchema).describe("All connections between nodes"),
-  summary: z.string().describe("One-sentence summary of the generated architecture"),
+  summary: z
+    .string()
+    .describe("One-sentence summary of the generated architecture"),
 });
 
 interface DesignAgentPayload {
@@ -92,7 +108,7 @@ export const designAgentTask = task({
       });
 
       const { object: design } = await generateObject({
-        model: google("gemini-2.0-flash"),
+        model: google("gemini-2.5-flash"),
         schema: DesignSchema,
         system: SYSTEM_PROMPT,
         prompt,
@@ -113,7 +129,8 @@ export const designAgentTask = task({
 
       // Build canvas nodes
       const canvasNodes = design.nodes.map((n) => {
-        const color = NODE_COLORS[Math.min(n.colorIndex, NODE_COLORS.length - 1)];
+        const color =
+          NODE_COLORS[Math.min(n.colorIndex, NODE_COLORS.length - 1)];
         return {
           id: n.id,
           type: "canvasNode" as const,
@@ -148,8 +165,12 @@ export const designAgentTask = task({
 
       // Send all operations in one broadcast
       const operations: CanvasOperation[] = [
-        ...canvasNodes.map((node): CanvasOperation => ({ type: "add-node", node })),
-        ...canvasEdges.map((edge): CanvasOperation => ({ type: "add-edge", edge })),
+        ...canvasNodes.map(
+          (node): CanvasOperation => ({ type: "add-node", node }),
+        ),
+        ...canvasEdges.map(
+          (edge): CanvasOperation => ({ type: "add-edge", edge }),
+        ),
       ];
 
       await lb.broadcastEvent(roomId, { type: "ai-canvas-ops", operations });
@@ -163,9 +184,17 @@ export const designAgentTask = task({
         phase: "complete",
       });
 
-      logger.info("Design agent complete", { roomId, nodeCount: canvasNodes.length, edgeCount: canvasEdges.length });
+      logger.info("Design agent complete", {
+        roomId,
+        nodeCount: canvasNodes.length,
+        edgeCount: canvasEdges.length,
+      });
 
-      return { summary: design.summary, nodeCount: canvasNodes.length, edgeCount: canvasEdges.length };
+      return {
+        summary: design.summary,
+        nodeCount: canvasNodes.length,
+        edgeCount: canvasEdges.length,
+      };
     } catch (error) {
       logger.error("Design agent failed", { roomId, error: String(error) });
 

@@ -1,6 +1,9 @@
 // Define Liveblocks types for your application
 // https://liveblocks.io/docs/api-reference/liveblocks-react#Typing-your-data
 
+import type { LiveList, LiveObject } from "@liveblocks/client";
+import type { ChatMessage } from "@/types/tasks";
+
 // Liveblocks requires all RoomEvent values to be valid JSON (no undefined).
 // These inline types mirror CanvasOperation from types/canvas.ts but use
 // null instead of optional fields so they satisfy the JsonObject constraint.
@@ -37,7 +40,12 @@ declare global {
     };
 
     // The Storage tree for the room, for useMutation, useStorage, etc.
-    Storage: {};
+    Storage: {
+      // ai-status-feed: latest AI generation status visible to all room participants
+      aiStatus: LiveObject<{ message: string; phase: string }>;
+      // ai-chat: ordered collaborative chat messages
+      chatMessages: LiveList<ChatMessage>;
+    };
 
     // Custom user info set when authenticating with a secret key
     UserMeta: {
