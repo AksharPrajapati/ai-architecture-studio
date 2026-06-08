@@ -2,6 +2,8 @@
 
 import { CheckCircle2, Loader2, LayoutTemplate, Share2, Sparkles, XCircle } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
+import { LiveblocksProvider, RoomProvider } from "@liveblocks/react";
+import { LiveList, LiveObject } from "@liveblocks/client";
 
 import { AiSidebar } from "@/components/editor/ai-sidebar";
 import { CanvasWrapper } from "@/components/editor/canvas-wrapper";
@@ -84,6 +86,15 @@ export function WorkspaceLayout({
   }
 
   return (
+    <LiveblocksProvider authEndpoint="/api/liveblocks-auth">
+    <RoomProvider
+      id={roomId}
+      initialPresence={{ cursor: null, thinking: false }}
+      initialStorage={{
+        aiStatus: new LiveObject({ message: "", phase: "complete" }),
+        chatMessages: new LiveList([]),
+      }}
+    >
     <div className="flex h-screen flex-col bg-base">
       <EditorNavbar
         isSidebarOpen={isSidebarOpen}
@@ -168,5 +179,7 @@ export function WorkspaceLayout({
         onImport={handleImportTemplate}
       />
     </div>
+    </RoomProvider>
+    </LiveblocksProvider>
   );
 }

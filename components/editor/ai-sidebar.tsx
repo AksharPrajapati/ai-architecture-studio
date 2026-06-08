@@ -3,13 +3,22 @@
 import { Bot, Download, FileText, Loader2, Send, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRealtimeRun } from "@trigger.dev/react-hooks";
-import { useEventListener } from "@liveblocks/react";
+import {
+  useEventListener,
+  useMyPresence,
+  useMutation,
+  useOthers,
+  useStorage,
+} from "@liveblocks/react";
+import { useUser } from "@clerk/nextjs";
 
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { AiStatusPayloadSchema, ChatMessageSchema } from "@/types/tasks";
+import type { ChatMessage } from "@/types/tasks";
 
 interface AiSidebarProps {
   isOpen: boolean;
@@ -23,67 +32,116 @@ const STARTER_CHIPS = [
   "Build a CI/CD pipeline",
 ];
 
-interface Message {
-  role: "user" | "assistant";
-  content: string;
-  isStatus?: boolean;
+function formatTime(isoString: string): string {
+  return new Date(isoString).toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
-interface AiArchitectTabProps {
-  projectId: string;
-}
-
-function AiArchitectTab({ projectId }: AiArchitectTabProps) {
-  const [messages, setMessages] = useState<Message[]>([]);
+function AiArchitectTab({ projectId }: { projectId: string }) {
   const [input, setInput] = useState("");
   const [runId, setRunId] = useState<string | null>(null);
   const [publicToken, setPublicToken] = useState<string | null>(null);
   const [isTriggering, setIsTriggering] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const bottomRef = useRef<HTMLDivElement>(null);
+
+  const { user } = useUser();
+  const senderName = user?.fullName ?? user?.firstName ?? "You";
+
+  const others = useOthers();
+  const [, updateMyPresence] = useMyPresence();
+
+  // ai-chat feed: ordered collaborative chat messages
+  const rawMessages = useStorage((root) => root.chatMessages);
+  // ai-status-feed: latest AI generation status
+  const aiStatusRaw = useStorage((root) => root.aiStatus);
+
+  // Validate chat messages before rendering (spec 25)
+  const messages: ChatMessage[] = (rawMessages ?? []).flatMap((item) => {
+    const result = ChatMessageSchema.safeParse(item);
+    return result.success ? [result.data] : [];
+  });
+
+  // Validate AI status before displaying (spec 24)
+  const validStatus = aiStatusRaw
+    ? AiStatusPayloadSchema.safeParse(aiStatusRaw)
+    : null;
+  const statusMessage =
+    validStatus?.success &&
+    validStatus.data.phase !== "complete" &&
+    validStatus.data.message
+      ? validStatus.data.message
+      : null;
+
+  // Push a message to the ai-chat feed (spec 25)
+  const addMessage = useMutation(({ storage }, msg: ChatMessage) => {
+    storage.get("chatMessages")?.push(msg);
+  }, []);
+
+  // Update ai-status-feed from broadcast events (spec 24)
+  const updateAiStatus = useMutation(
+    ({ storage }, status: { message: string; phase: string }) => {
+      storage.get("aiStatus")?.update(status);
+    },
+    [],
+  );
 
   const { run } = useRealtimeRun(runId ?? "", {
     accessToken: publicToken ?? "",
     enabled: !!runId && !!publicToken,
   });
 
-  // Track run completion / failure
+  // Track run completion and push AI reply to chat feed (spec 26)
   useEffect(() => {
     if (!run) return;
 
     if (run.status === "COMPLETED") {
-      const summary = (run.metadata as Record<string, string> | undefined)?.summary;
-      if (summary) {
-        setMessages((prev) => [
-          ...prev.filter((m) => !m.isStatus),
-          { role: "assistant", content: summary },
-        ]);
-      }
+      const summary = (run.metadata as Record<string, string> | undefined)
+        ?.summary;
+      addMessage({
+        id: `ai-${Date.now()}`,
+        role: "assistant",
+        content: summary ?? "Architecture design complete.",
+        sender: "Ghost AI",
+        timestamp: new Date().toISOString(),
+      });
       setRunId(null);
       setPublicToken(null);
+      updateMyPresence({ thinking: false });
     }
 
-    if (run.status === "FAILED" || run.status === "CRASHED" || run.status === "CANCELED") {
-      setMessages((prev) => [
-        ...prev.filter((m) => !m.isStatus),
-        { role: "assistant", content: "Something went wrong. Please try again." },
-      ]);
+    if (
+      run.status === "FAILED" ||
+      run.status === "CRASHED" ||
+      run.status === "CANCELED"
+    ) {
+      addMessage({
+        id: `ai-err-${Date.now()}`,
+        role: "assistant",
+        content: "Something went wrong. Please try again.",
+        sender: "Ghost AI",
+        timestamp: new Date().toISOString(),
+      });
       setRunId(null);
       setPublicToken(null);
+      updateMyPresence({ thinking: false });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [run?.status]);
 
-  // Listen for AI status broadcasts
+  // Listen for AI status broadcast events and write to ai-status-feed (spec 24)
   useEventListener(({ event }) => {
     if (event.type === "ai-status") {
-      if (event.phase === "start" || event.phase === "processing") {
-        setMessages((prev) => {
-          const withoutPrev = prev.filter((m) => !m.isStatus);
-          return [...withoutPrev, { role: "assistant", content: event.message, isStatus: true }];
-        });
-      }
+      updateAiStatus({ message: event.message, phase: event.phase });
     }
   });
+
+  // Auto-scroll to bottom when new messages arrive
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages.length]);
 
   const adjustHeight = useCallback(() => {
     const el = textareaRef.current;
@@ -96,10 +154,20 @@ function AiArchitectTab({ projectId }: AiArchitectTabProps) {
     const text = input.trim();
     if (!text || isTriggering || !!runId) return;
 
-    setMessages((prev) => [...prev, { role: "user", content: text }]);
+    // Push user message to ai-chat feed (spec 25/26)
+    addMessage({
+      id: `user-${Date.now()}`,
+      role: "user",
+      content: text,
+      sender: senderName,
+      timestamp: new Date().toISOString(),
+    });
+
     setInput("");
     if (textareaRef.current) textareaRef.current.style.height = "72px";
     setIsTriggering(true);
+    // Broadcast thinking state to all room participants (spec 24)
+    updateMyPresence({ thinking: true });
 
     try {
       const triggerRes = await fetch("/api/ai/design", {
@@ -108,11 +176,10 @@ function AiArchitectTab({ projectId }: AiArchitectTabProps) {
         body: JSON.stringify({ prompt: text, roomId: projectId, projectId }),
       });
 
-      if (!triggerRes.ok) {
-        throw new Error("Failed to start design task");
-      }
-
-      const { runId: newRunId } = (await triggerRes.json()) as { runId: string };
+      if (!triggerRes.ok) throw new Error("Failed to start design task");
+      const { runId: newRunId } = (await triggerRes.json()) as {
+        runId: string;
+      };
 
       const tokenRes = await fetch("/api/ai/design/token", {
         method: "POST",
@@ -120,23 +187,24 @@ function AiArchitectTab({ projectId }: AiArchitectTabProps) {
         body: JSON.stringify({ runId: newRunId }),
       });
 
-      if (!tokenRes.ok) {
-        throw new Error("Failed to get run token");
-      }
-
+      if (!tokenRes.ok) throw new Error("Failed to get run token");
       const { token } = (await tokenRes.json()) as { token: string };
 
       setRunId(newRunId);
       setPublicToken(token);
     } catch {
-      setMessages((prev) => [
-        ...prev,
-        { role: "assistant", content: "Failed to start the design agent. Please try again." },
-      ]);
+      addMessage({
+        id: `ai-err-${Date.now()}`,
+        role: "assistant",
+        content: "Failed to start the design agent. Please try again.",
+        sender: "Ghost AI",
+        timestamp: new Date().toISOString(),
+      });
+      updateMyPresence({ thinking: false });
     } finally {
       setIsTriggering(false);
     }
-  }, [input, isTriggering, runId, projectId]);
+  }, [input, isTriggering, runId, projectId, senderName, addMessage, updateMyPresence]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -148,16 +216,24 @@ function AiArchitectTab({ projectId }: AiArchitectTabProps) {
     [handleSend],
   );
 
-  const handleChipClick = useCallback((chip: string) => {
-    setInput(chip);
-    textareaRef.current?.focus();
-  }, []);
+  const handleChipClick = useCallback(
+    (chip: string) => {
+      setInput(chip);
+      textareaRef.current?.focus();
+    },
+    [],
+  );
 
   const isRunning = !!runId || isTriggering;
+  // Disable input for all users when anyone is generating (spec 24)
+  const someoneElseThinking = others.some((o) => o.presence.thinking);
+  const isInputDisabled = isRunning || someoneElseThinking;
+  // Show status strip above input only when a run is active (spec 26)
+  const showStatusStrip = (isRunning || someoneElseThinking) && !!statusMessage;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <ScrollArea className="min-h-0 flex-1 px-4 py-3" ref={scrollRef}>
+      <ScrollArea className="min-h-0 flex-1 px-4 py-3">
         {messages.length === 0 ? (
           <div className="flex flex-col items-center gap-4 pt-8 text-center">
             <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-elevated">
@@ -185,37 +261,51 @@ function AiArchitectTab({ projectId }: AiArchitectTabProps) {
             </div>
           </div>
         ) : (
-          <div className="flex flex-col gap-3">
-            {messages.map((msg, i) =>
+          <div className="flex flex-col gap-3 pb-2">
+            {messages.map((msg) =>
               msg.role === "user" ? (
-                <div key={i} className="flex justify-end">
-                  <div className="max-w-[80%] rounded-2xl border-2 border-brand/50 bg-brand-dim px-3 py-2 text-xs text-copy-primary">
-                    {msg.content}
+                <div key={msg.id} className="flex justify-end">
+                  <div className="flex max-w-[85%] flex-col items-end gap-0.5">
+                    <div className="flex items-center gap-1.5 text-[10px] text-copy-muted">
+                      <span>{msg.sender}</span>
+                      <span>{formatTime(msg.timestamp)}</span>
+                    </div>
+                    <div
+                      className="rounded-2xl px-3 py-2 text-xs font-medium text-white"
+                      style={{ backgroundColor: "#62C073" }}
+                    >
+                      {msg.content}
+                    </div>
                   </div>
                 </div>
               ) : (
-                <div key={i} className="flex justify-start gap-2">
-                  {msg.isStatus ? (
-                    <Loader2 className="mt-1 h-3.5 w-3.5 shrink-0 animate-spin text-ai-text" />
-                  ) : (
-                    <Bot className="mt-1 h-3.5 w-3.5 shrink-0 text-ai-text" />
-                  )}
-                  <div
-                    className={cn(
-                      "max-w-[80%] rounded-2xl border px-3 py-2 text-xs text-copy-primary",
-                      msg.isStatus
-                        ? "border-ai/30 bg-ai/10 text-copy-muted"
-                        : "border-surface-border bg-elevated",
-                    )}
-                  >
-                    {msg.content}
+                <div key={msg.id} className="flex justify-start gap-2">
+                  <Bot className="mt-5 h-3.5 w-3.5 shrink-0 text-ai-text" />
+                  <div className="flex max-w-[85%] flex-col gap-0.5">
+                    <div className="flex items-center gap-1.5 text-[10px] text-copy-muted">
+                      <span>{msg.sender}</span>
+                      <span>{formatTime(msg.timestamp)}</span>
+                    </div>
+                    <div className="rounded-2xl border border-surface-border bg-elevated px-3 py-2 text-xs text-copy-primary">
+                      {msg.content}
+                    </div>
                   </div>
                 </div>
               ),
             )}
+            <div ref={bottomRef} />
           </div>
         )}
       </ScrollArea>
+
+      {/* Status strip: compact bar above input showing ai-status-feed message (spec 24/26) */}
+      {showStatusStrip && (
+        <div className="mx-3 mb-2 flex items-center gap-2 rounded-xl border border-[#62C073]/20 bg-elevated px-3 py-1.5 text-xs text-copy-muted">
+          <span className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-[#62C073]" />
+          <span className="truncate">{statusMessage}</span>
+        </div>
+      )}
+
       <div className="flex flex-col gap-2 border-t border-surface-border p-3">
         <Textarea
           ref={textareaRef}
@@ -225,17 +315,26 @@ function AiArchitectTab({ projectId }: AiArchitectTabProps) {
             adjustHeight();
           }}
           onKeyDown={handleKeyDown}
-          placeholder="Describe an architecture…"
-          disabled={isRunning}
+          placeholder={
+            someoneElseThinking
+              ? "AI is working…"
+              : "Describe an architecture…"
+          }
+          disabled={isInputDisabled}
           className="max-h-[160px] min-h-[72px] resize-none border-surface-border bg-elevated text-xs text-copy-primary placeholder:text-copy-muted disabled:opacity-50"
         />
         <div className="flex justify-end">
           <Button
             type="button"
             size="sm"
-            className="bg-ai text-white hover:bg-ai/80"
+            className={cn(
+              "text-white transition-colors",
+              !input.trim() || isInputDisabled
+                ? "cursor-not-allowed bg-[#62C073]/40 hover:bg-[#62C073]/40"
+                : "bg-[#62C073] hover:bg-[#62C073]/90",
+            )}
             onClick={() => void handleSend()}
-            disabled={!input.trim() || isRunning}
+            disabled={!input.trim() || isInputDisabled}
           >
             {isRunning ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -253,7 +352,7 @@ function AiArchitectTab({ projectId }: AiArchitectTabProps) {
 function SpecsTab() {
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3 p-4">
-      <Button type="button" className="w-full bg-ai text-white hover:bg-ai/80">
+      <Button type="button" className="w-full bg-[#62C073] text-white hover:bg-[#62C073]/90">
         Generate Spec
       </Button>
       <div className="flex items-start gap-3 rounded-2xl border border-surface-border bg-elevated p-4">
@@ -316,10 +415,7 @@ export function AiSidebar({ isOpen, onClose, projectId }: AiSidebarProps) {
       </div>
 
       {/* Tabs */}
-      <Tabs
-        defaultValue="architect"
-        className="flex min-h-0 flex-1 flex-col"
-      >
+      <Tabs defaultValue="architect" className="flex min-h-0 flex-1 flex-col">
         <TabsList className="mx-4 mt-3 shrink-0 border border-surface-border bg-elevated">
           <TabsTrigger
             value="architect"
