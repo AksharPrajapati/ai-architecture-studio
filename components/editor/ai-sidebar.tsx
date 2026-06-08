@@ -2,6 +2,7 @@
 
 import { Bot, Download, FileText, Loader2, Send, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import ReactMarkdown from "react-markdown";
 import { useRealtimeRun } from "@trigger.dev/react-hooks";
 import {
   useEventListener,
@@ -13,6 +14,12 @@ import {
 import { useUser } from "@clerk/nextjs";
 
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
@@ -104,7 +111,7 @@ function AiArchitectTab({ projectId }: { projectId: string }) {
         id: `ai-${Date.now()}`,
         role: "assistant",
         content: summary ?? "Architecture design complete.",
-        sender: "Ghost AI",
+        sender: "SpecForge",
         timestamp: new Date().toISOString(),
       });
       setRunId(null);
@@ -121,7 +128,7 @@ function AiArchitectTab({ projectId }: { projectId: string }) {
         id: `ai-err-${Date.now()}`,
         role: "assistant",
         content: "Something went wrong. Please try again.",
-        sender: "Ghost AI",
+        sender: "SpecForge",
         timestamp: new Date().toISOString(),
       });
       setRunId(null);
@@ -197,14 +204,22 @@ function AiArchitectTab({ projectId }: { projectId: string }) {
         id: `ai-err-${Date.now()}`,
         role: "assistant",
         content: "Failed to start the design agent. Please try again.",
-        sender: "Ghost AI",
+        sender: "SpecForge",
         timestamp: new Date().toISOString(),
       });
       updateMyPresence({ thinking: false });
     } finally {
       setIsTriggering(false);
     }
-  }, [input, isTriggering, runId, projectId, senderName, addMessage, updateMyPresence]);
+  }, [
+    input,
+    isTriggering,
+    runId,
+    projectId,
+    senderName,
+    addMessage,
+    updateMyPresence,
+  ]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -216,13 +231,10 @@ function AiArchitectTab({ projectId }: { projectId: string }) {
     [handleSend],
   );
 
-  const handleChipClick = useCallback(
-    (chip: string) => {
-      setInput(chip);
-      textareaRef.current?.focus();
-    },
-    [],
-  );
+  const handleChipClick = useCallback((chip: string) => {
+    setInput(chip);
+    textareaRef.current?.focus();
+  }, []);
 
   const isRunning = !!runId || isTriggering;
   // Disable input for all users when anyone is generating (spec 24)
@@ -241,7 +253,7 @@ function AiArchitectTab({ projectId }: { projectId: string }) {
             </div>
             <div>
               <p className="text-sm font-medium text-copy-primary">
-                Ghost AI Architect
+                SpecForge Architect
               </p>
               <p className="mt-1 text-xs text-copy-muted">
                 Describe a system and I&apos;ll design it for you.
@@ -316,9 +328,7 @@ function AiArchitectTab({ projectId }: { projectId: string }) {
           }}
           onKeyDown={handleKeyDown}
           placeholder={
-            someoneElseThinking
-              ? "AI is working…"
-              : "Describe an architecture…"
+            someoneElseThinking ? "AI is working…" : "Describe an architecture…"
           }
           disabled={isInputDisabled}
           className="max-h-[160px] min-h-[72px] resize-none border-surface-border bg-elevated text-xs text-copy-primary placeholder:text-copy-muted disabled:opacity-50"
@@ -349,34 +359,266 @@ function AiArchitectTab({ projectId }: { projectId: string }) {
   );
 }
 
-function SpecsTab() {
+interface ProjectSpec {
+  id: string;
+  filePath: string;
+  createdAt: string;
+}
+
+function formatSpecDate(iso: string): string {
+  return new Date(iso).toLocaleString([], {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function specFilename(spec: ProjectSpec): string {
+  return `spec-${spec.id.slice(-8)}.md`;
+}
+
+function SpecPreviewModal({
+  spec,
+  projectId,
+  onClose,
+}: {
+  spec: ProjectSpec;
+  projectId: string;
+  onClose: () => void;
+}) {
+  const [content, setContent] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const res = await fetch(
+          `/api/projects/${projectId}/specs/${spec.id}/download`,
+        );
+        if (res.ok) {
+          setContent(await res.text());
+        }
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [spec.id, projectId]);
+
+  const handleDownload = useCallback(() => {
+    const a = document.createElement("a");
+    a.href = `/api/projects/${projectId}/specs/${spec.id}/download`;
+    a.download = specFilename(spec);
+    a.click();
+  }, [spec, projectId]);
+
+  return (
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="flex max-h-[80vh] max-w-2xl flex-col border-surface-border bg-surface">
+        <DialogHeader className="shrink-0">
+          <DialogTitle className="flex items-center justify-between text-sm font-semibold text-copy-primary">
+            <span>{specFilename(spec)}</span>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="h-7 gap-1.5 border-surface-border text-xs text-copy-muted hover:text-copy-primary"
+              onClick={handleDownload}
+            >
+              <Download className="h-3 w-3" />
+              Download
+            </Button>
+          </DialogTitle>
+        </DialogHeader>
+        <ScrollArea className="min-h-0 flex-1 rounded-xl border border-surface-border bg-elevated p-4">
+          {loading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-5 w-5 animate-spin text-copy-muted" />
+            </div>
+          ) : content ? (
+            <div className="prose prose-invert prose-sm max-w-none text-copy-primary [&_code]:rounded [&_code]:bg-subtle [&_code]:px-1 [&_code]:py-0.5 [&_code]:text-xs [&_h1]:text-sm [&_h2]:text-xs [&_h3]:text-xs [&_li]:text-xs [&_p]:text-xs">
+              <ReactMarkdown>{content}</ReactMarkdown>
+            </div>
+          ) : (
+            <p className="text-xs text-copy-muted">
+              Failed to load spec content.
+            </p>
+          )}
+        </ScrollArea>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function SpecsTab({ projectId }: { projectId: string }) {
+  const [specs, setSpecs] = useState<ProjectSpec[]>([]);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [genRunId, setGenRunId] = useState<string | null>(null);
+  const [genToken, setGenToken] = useState<string | null>(null);
+  const [previewSpec, setPreviewSpec] = useState<ProjectSpec | null>(null);
+
+  const rawMessages = useStorage((root) => root.chatMessages);
+
+  const { run: genRun } = useRealtimeRun(genRunId ?? "", {
+    accessToken: genToken ?? "",
+    enabled: !!genRunId && !!genToken,
+  });
+
+  const fetchSpecs = useCallback(async () => {
+    const res = await fetch(`/api/projects/${projectId}/specs`);
+    if (res.ok) {
+      const data = (await res.json()) as { specs: ProjectSpec[] };
+      setSpecs(data.specs);
+    }
+  }, [projectId]);
+
+  useEffect(() => {
+    void fetchSpecs();
+  }, [fetchSpecs]);
+
+  // Refresh spec list when generation completes
+  useEffect(() => {
+    if (!genRun) return;
+    if (genRun.status === "COMPLETED") {
+      setGenRunId(null);
+      setGenToken(null);
+      void fetchSpecs();
+    }
+    if (
+      genRun.status === "FAILED" ||
+      genRun.status === "CRASHED" ||
+      genRun.status === "CANCELED"
+    ) {
+      setGenRunId(null);
+      setGenToken(null);
+    }
+  }, [genRun?.status, fetchSpecs]);
+
+  const handleGenerate = useCallback(async () => {
+    if (isGenerating || !!genRunId) return;
+    setIsGenerating(true);
+
+    try {
+      const chatHistory = (rawMessages ?? []).flatMap((item) => {
+        const r = ChatMessageSchema.safeParse(item);
+        return r.success ? [r.data] : [];
+      });
+
+      const triggerRes = await fetch("/api/ai/spec", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          roomId: projectId,
+          chatHistory,
+          nodes: [],
+          edges: [],
+        }),
+      });
+      if (!triggerRes.ok) throw new Error("Failed to start spec task");
+      const { runId } = (await triggerRes.json()) as { runId: string };
+
+      const tokenRes = await fetch("/api/ai/spec/token", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ runId }),
+      });
+      if (!tokenRes.ok) throw new Error("Failed to get run token");
+      const { token } = (await tokenRes.json()) as { token: string };
+
+      setGenRunId(runId);
+      setGenToken(token);
+    } catch {
+      // silent failure — user can retry
+    } finally {
+      setIsGenerating(false);
+    }
+  }, [isGenerating, genRunId, projectId, rawMessages]);
+
+  const handleDownload = useCallback(
+    (spec: ProjectSpec, e: React.MouseEvent) => {
+      e.stopPropagation();
+      const a = document.createElement("a");
+      a.href = `/api/projects/${projectId}/specs/${spec.id}/download`;
+      a.download = specFilename(spec);
+      a.click();
+    },
+    [projectId],
+  );
+
+  const isWorking = isGenerating || !!genRunId;
+
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3 p-4">
-      <Button type="button" className="w-full bg-[#62C073] text-white hover:bg-[#62C073]/90">
-        Generate Spec
+      <Button
+        type="button"
+        className={cn(
+          "w-full text-white transition-colors",
+          isWorking
+            ? "cursor-not-allowed bg-[#62C073]/40"
+            : "bg-[#62C073] hover:bg-[#62C073]/90",
+        )}
+        disabled={isWorking}
+        onClick={() => void handleGenerate()}
+      >
+        {isWorking ? (
+          <>
+            <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+            Generating…
+          </>
+        ) : (
+          "Generate Spec"
+        )}
       </Button>
-      <div className="flex items-start gap-3 rounded-2xl border border-surface-border bg-elevated p-4">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-subtle">
-          <FileText className="h-4 w-4 text-ai-text" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="text-xs font-medium text-copy-primary">
-            Microservices Architecture
-          </p>
-          <p className="mt-0.5 line-clamp-2 text-xs text-copy-muted">
-            API Gateway, Auth Service, Product Service, Order Service, Event
-            Bus…
-          </p>
-          <button
-            type="button"
-            disabled
-            className="mt-2 flex cursor-not-allowed items-center gap-1 text-xs text-copy-faint"
-          >
-            <Download className="h-3 w-3" />
-            Download
-          </button>
-        </div>
-      </div>
+
+      <ScrollArea className="min-h-0 flex-1">
+        {specs.length === 0 ? (
+          <div className="flex flex-col items-center gap-2 pt-6 text-center">
+            <FileText className="h-8 w-8 text-copy-faint" />
+            <p className="text-xs text-copy-muted">
+              No specs yet. Generate one above.
+            </p>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {specs.map((spec) => (
+              <button
+                key={spec.id}
+                type="button"
+                className="flex w-full items-start gap-3 rounded-2xl border border-surface-border bg-elevated p-3 text-left transition-colors hover:bg-subtle"
+                onClick={() => setPreviewSpec(spec)}
+              >
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-subtle">
+                  <FileText className="h-4 w-4 text-ai-text" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-xs font-medium text-copy-primary">
+                    {specFilename(spec)}
+                  </p>
+                  <p className="mt-0.5 text-[10px] text-copy-muted">
+                    {formatSpecDate(spec.createdAt)}
+                  </p>
+                  <button
+                    type="button"
+                    className="mt-1.5 flex items-center gap-1 text-xs text-copy-muted hover:text-copy-primary"
+                    onClick={(e) => handleDownload(spec, e)}
+                  >
+                    <Download className="h-3 w-3" />
+                    Download
+                  </button>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+      </ScrollArea>
+
+      {previewSpec && (
+        <SpecPreviewModal
+          spec={previewSpec}
+          projectId={projectId}
+          onClose={() => setPreviewSpec(null)}
+        />
+      )}
     </div>
   );
 }
@@ -400,7 +642,9 @@ export function AiSidebar({ isOpen, onClose, projectId }: AiSidebarProps) {
             <h2 className="text-sm font-semibold text-copy-primary">
               AI Workspace
             </h2>
-            <p className="text-xs text-copy-muted">Collaborate with Ghost AI</p>
+            <p className="text-xs text-copy-muted">
+              Collaborate with SpecForge
+            </p>
           </div>
         </div>
         <Button
@@ -440,7 +684,7 @@ export function AiSidebar({ isOpen, onClose, projectId }: AiSidebarProps) {
           value="specs"
           className="mt-0 flex min-h-0 flex-1 flex-col"
         >
-          <SpecsTab />
+          <SpecsTab projectId={projectId} />
         </TabsContent>
       </Tabs>
     </aside>
