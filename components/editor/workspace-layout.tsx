@@ -154,6 +154,7 @@ export function WorkspaceLayout({
         <AiSidebar
           isOpen={isAiSidebarOpen}
           onClose={() => setIsAiSidebarOpen(false)}
+          projectId={roomId}
         />
       </div>
       <ShareDialog

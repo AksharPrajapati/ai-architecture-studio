@@ -51,3 +51,34 @@ export interface ShapeDragPayload {
 }
 
 export const SHAPE_DRAG_TYPE = "application/canvas-shape";
+
+// JSON-safe node/edge payloads used in Liveblocks RoomEvent broadcasts.
+// These avoid @xyflow/react internals (which aren't JSON-serializable).
+export interface CanvasNodePayload {
+  id: string;
+  type: "canvasNode";
+  position: { x: number; y: number };
+  width: number;
+  height: number;
+  data: {
+    label: string;
+    color: string;
+    textColor: string;
+    shape: NodeShape;
+  };
+}
+
+export interface CanvasEdgePayload {
+  id: string;
+  source: string;
+  target: string;
+  type: "canvasEdge";
+  data: { label: string };
+}
+
+export type CanvasOperation =
+  | { type: "add-node"; node: CanvasNodePayload }
+  | { type: "update-node"; id: string; position: { x: number; y: number } | null; width: number | null; height: number | null; data: { label: string; color: string; textColor: string; shape: NodeShape } | null }
+  | { type: "delete-node"; id: string }
+  | { type: "add-edge"; edge: CanvasEdgePayload }
+  | { type: "delete-edge"; id: string }

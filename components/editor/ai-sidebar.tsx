@@ -1,7 +1,9 @@
 "use client";
 
-import { Bot, Download, FileText, Send, X } from "lucide-react";
-import { useCallback, useRef, useState } from "react";
+import { Bot, Download, FileText, Loader2, Send, X } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useRealtimeRun } from "@trigger.dev/react-hooks";
+import { useEventListener } from "@liveblocks/react";
 
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -12,6 +14,7 @@ import { cn } from "@/lib/utils";
 interface AiSidebarProps {
   isOpen: boolean;
   onClose: () => void;
+  projectId: string;
 }
 
 const STARTER_CHIPS = [
@@ -23,12 +26,64 @@ const STARTER_CHIPS = [
 interface Message {
   role: "user" | "assistant";
   content: string;
+  isStatus?: boolean;
 }
 
-function AiArchitectTab() {
+interface AiArchitectTabProps {
+  projectId: string;
+}
+
+function AiArchitectTab({ projectId }: AiArchitectTabProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
+  const [runId, setRunId] = useState<string | null>(null);
+  const [publicToken, setPublicToken] = useState<string | null>(null);
+  const [isTriggering, setIsTriggering] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  const { run } = useRealtimeRun(runId ?? "", {
+    accessToken: publicToken ?? "",
+    enabled: !!runId && !!publicToken,
+  });
+
+  // Track run completion / failure
+  useEffect(() => {
+    if (!run) return;
+
+    if (run.status === "COMPLETED") {
+      const summary = (run.metadata as Record<string, string> | undefined)?.summary;
+      if (summary) {
+        setMessages((prev) => [
+          ...prev.filter((m) => !m.isStatus),
+          { role: "assistant", content: summary },
+        ]);
+      }
+      setRunId(null);
+      setPublicToken(null);
+    }
+
+    if (run.status === "FAILED" || run.status === "CRASHED" || run.status === "CANCELED") {
+      setMessages((prev) => [
+        ...prev.filter((m) => !m.isStatus),
+        { role: "assistant", content: "Something went wrong. Please try again." },
+      ]);
+      setRunId(null);
+      setPublicToken(null);
+    }
+  }, [run?.status]);
+
+  // Listen for AI status broadcasts
+  useEventListener(({ event }) => {
+    if (event.type === "ai-status") {
+      if (event.phase === "start" || event.phase === "processing") {
+        setMessages((prev) => {
+          const withoutPrev = prev.filter((m) => !m.isStatus);
+          return [...withoutPrev, { role: "assistant", content: event.message, isStatus: true }];
+        });
+      }
+    }
+  });
 
   const adjustHeight = useCallback(() => {
     const el = textareaRef.current;
@@ -37,21 +92,57 @@ function AiArchitectTab() {
     el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
   }, []);
 
-  const handleSend = useCallback(() => {
+  const handleSend = useCallback(async () => {
     const text = input.trim();
-    if (!text) return;
+    if (!text || isTriggering || !!runId) return;
+
     setMessages((prev) => [...prev, { role: "user", content: text }]);
     setInput("");
-    if (textareaRef.current) {
-      textareaRef.current.style.height = "72px";
+    if (textareaRef.current) textareaRef.current.style.height = "72px";
+    setIsTriggering(true);
+
+    try {
+      const triggerRes = await fetch("/api/ai/design", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: text, roomId: projectId, projectId }),
+      });
+
+      if (!triggerRes.ok) {
+        throw new Error("Failed to start design task");
+      }
+
+      const { runId: newRunId } = (await triggerRes.json()) as { runId: string };
+
+      const tokenRes = await fetch("/api/ai/design/token", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ runId: newRunId }),
+      });
+
+      if (!tokenRes.ok) {
+        throw new Error("Failed to get run token");
+      }
+
+      const { token } = (await tokenRes.json()) as { token: string };
+
+      setRunId(newRunId);
+      setPublicToken(token);
+    } catch {
+      setMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: "Failed to start the design agent. Please try again." },
+      ]);
+    } finally {
+      setIsTriggering(false);
     }
-  }, [input]);
+  }, [input, isTriggering, runId, projectId]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
-        handleSend();
+        void handleSend();
       }
     },
     [handleSend],
@@ -62,9 +153,11 @@ function AiArchitectTab() {
     textareaRef.current?.focus();
   }, []);
 
+  const isRunning = !!runId || isTriggering;
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <ScrollArea className="min-h-0 flex-1 px-4 py-3">
+      <ScrollArea className="min-h-0 flex-1 px-4 py-3" ref={scrollRef}>
         {messages.length === 0 ? (
           <div className="flex flex-col items-center gap-4 pt-8 text-center">
             <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-elevated">
@@ -101,8 +194,20 @@ function AiArchitectTab() {
                   </div>
                 </div>
               ) : (
-                <div key={i} className="flex justify-start">
-                  <div className="max-w-[80%] rounded-2xl border border-surface-border bg-elevated px-3 py-2 text-xs text-copy-primary">
+                <div key={i} className="flex justify-start gap-2">
+                  {msg.isStatus ? (
+                    <Loader2 className="mt-1 h-3.5 w-3.5 shrink-0 animate-spin text-ai-text" />
+                  ) : (
+                    <Bot className="mt-1 h-3.5 w-3.5 shrink-0 text-ai-text" />
+                  )}
+                  <div
+                    className={cn(
+                      "max-w-[80%] rounded-2xl border px-3 py-2 text-xs text-copy-primary",
+                      msg.isStatus
+                        ? "border-ai/30 bg-ai/10 text-copy-muted"
+                        : "border-surface-border bg-elevated",
+                    )}
+                  >
                     {msg.content}
                   </div>
                 </div>
@@ -121,18 +226,23 @@ function AiArchitectTab() {
           }}
           onKeyDown={handleKeyDown}
           placeholder="Describe an architecture…"
-          className="max-h-[160px] min-h-[72px] resize-none border-surface-border bg-elevated text-xs text-copy-primary placeholder:text-copy-muted"
+          disabled={isRunning}
+          className="max-h-[160px] min-h-[72px] resize-none border-surface-border bg-elevated text-xs text-copy-primary placeholder:text-copy-muted disabled:opacity-50"
         />
         <div className="flex justify-end">
           <Button
             type="button"
             size="sm"
             className="bg-ai text-white hover:bg-ai/80"
-            onClick={handleSend}
-            disabled={!input.trim()}
+            onClick={() => void handleSend()}
+            disabled={!input.trim() || isRunning}
           >
-            <Send className="h-3.5 w-3.5" />
-            Send
+            {isRunning ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Send className="h-3.5 w-3.5" />
+            )}
+            {isRunning ? "Working…" : "Send"}
           </Button>
         </div>
       </div>
@@ -172,7 +282,7 @@ function SpecsTab() {
   );
 }
 
-export function AiSidebar({ isOpen, onClose }: AiSidebarProps) {
+export function AiSidebar({ isOpen, onClose, projectId }: AiSidebarProps) {
   return (
     <aside
       aria-hidden={!isOpen}
@@ -228,7 +338,7 @@ export function AiSidebar({ isOpen, onClose }: AiSidebarProps) {
           value="architect"
           className="mt-0 flex min-h-0 flex-1 flex-col"
         >
-          <AiArchitectTab />
+          <AiArchitectTab projectId={projectId} />
         </TabsContent>
         <TabsContent
           value="specs"
