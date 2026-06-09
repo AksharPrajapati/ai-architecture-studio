@@ -20,6 +20,10 @@ export const clerkAppearance = {
     fontFamilyButtons:
       "var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif",
   },
+  elements: {
+    rootBox: { width: "100%" },
+    cardBox: { width: "100%" },
+  },
 } as const;
 
 export function getClerkAuthPaths() {
