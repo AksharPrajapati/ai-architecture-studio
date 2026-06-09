@@ -196,4 +196,10 @@
   .react-flow__node.selected .react-flow__handle {
     opacity: 1;
   }
+
+  /* Hide third-party attribution badges */
+  #liveblocks-badge,
+  .react-flow__panel.bottom.right {
+    display: none !important;
+  }
 }

@@ -309,6 +309,7 @@ function CanvasInner({
         nodesConnectable={!isAiGenerating}
         elementsSelectable={!isAiGenerating}
         fitView
+        proOptions={{ hideAttribution: true }}
       >
         <Background variant={BackgroundVariant.Dots} />
         <Panel position="top-right" className="m-2">
